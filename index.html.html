@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CashFlow Planner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface2: #f1f0ec;
+  --border: rgba(0,0,0,0.10);
+  --border2: rgba(0,0,0,0.18);
+  --text: #1a1a18;
+  --text2: #5f5e5a;
+  --text3: #888780;
+  --accent: #1d9e75;
+  --accent-bg: #e1f5ee;
+  --accent-dark: #0f6e56;
+  --danger: #e24b4a;
+  --danger-bg: #fcebeb;
+  --warning: #ba7517;
+  --warning-bg: #faeeda;
+  --info: #185fa5;
+  --info-bg: #e6f1fb;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1a;
+    --surface: #242422;
+    --surface2: #2c2c2a;
+    --border: rgba(255,255,255,0.10);
+    --border2: rgba(255,255,255,0.18);
+    --text: #f0ede8;
+    --text2: #b4b2a9;
+    --text3: #888780;
+    --accent: #1d9e75;
+    --accent-bg: #04342c;
+    --accent-dark: #5dcaa5;
+    --danger: #f09595;
+    --danger-bg: #501313;
+    --warning: #ef9f27;
+    --warning-bg: #412402;
+    --info: #85b7eb;
+    --info-bg: #042c53;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Meiryo', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+/* ナビ */
+nav { background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 0 16px; display: flex; align-items: center; gap: 0; position: sticky; top: 0; z-index: 100; height: 52px; }
+.nav-logo { font-size: 15px; font-weight: 600; color: var(--accent); margin-right: 24px; white-space: nowrap; }
+.nav-tabs { display: flex; gap: 0; flex: 1; overflow-x: auto; }
+.nav-tab { padding: 0 16px; height: 52px; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: color 0.15s; }
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+.nav-actions { display: flex; gap: 8px; margin-left: 8px; }
+.btn { padding: 6px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: transparent; color: var(--text); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap; transition: background 0.12s; }
+.btn:hover { background: var(--surface2); }
+.btn-primary { background: var(--accent); color: #fff; border-color: transparent; }
+.btn-primary:hover { background: var(--accent-dark); }
+.btn-danger { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* ページ */
+.page { display: none; padding: 20px 16px; max-width: 900px; margin: 0 auto; }
+.page.active { display: block; }
+
+/* カード */
+.card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.card-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+
+/* サマリーカード */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.metric { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px; }
+.metric-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+.metric-value { font-size: 20px; font-weight: 500; }
+.metric-value.danger { color: var(--danger); }
+.metric-value.warning { color: var(--warning); }
+.metric-value.ok { color: var(--accent); }
+
+/* アラート */
+.alert { border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 10px; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; }
+.alert-danger { background: var(--danger-bg); color: var(--danger); }
+.alert-warning { background: var(--warning-bg); color: var(--warning); }
+.alert-ok { background: var(--accent-bg); color: var(--accent-dark); }
+.alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+/* テーブル */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 8px 10px; font-weight: 500; color: var(--text2); border-bottom: 0.5px solid var(--border2); font-size: 12px; }
+td { padding: 9px 10px; border-bottom: 0.5px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+.amount-positive { color: var(--accent); font-weight: 500; }
+.amount-negative { color: var(--danger); font-weight: 500; }
+.row-danger td { background: var(--danger-bg); }
+.row-warning td { background: var(--warning-bg); }
+
+/* フォーム */
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; font-weight: 500; }
+input, select, textarea { width: 100%; padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit; }
+input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(29,158,117,0.15); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+@media(max-width:500px) { .form-row, .form-row-3 { grid-template-columns: 1fr; } }
+
+/* バッジ */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 500; }
+.badge-bank { background: var(--info-bg); color: var(--info); }
+.badge-credit { background: var(--warning-bg); color: var(--warning); }
+.badge-cash { background: var(--surface2); color: var(--text2); }
+.badge-income { background: var(--accent-bg); color: var(--accent-dark); }
+.badge-expense { background: var(--danger-bg); color: var(--danger); }
+.badge-transfer { background: var(--info-bg); color: var(--info); }
+
+/* モーダル */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius); padding: 20px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal-title { font-size: 15px; font-weight: 500; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text2); padding: 4px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* チャート */
+.chart-wrapper { position: relative; width: 100%; height: 260px; }
+
+/* タイムライン */
+.timeline-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; }
+.timeline-date { width: 80px; color: var(--text2); flex-shrink: 0; }
+.timeline-label { flex: 1; }
+.timeline-account { font-size: 11px; color: var(--text3); }
+.timeline-amount { width: 90px; text-align: right; font-weight: 500; }
+.timeline-balance { width: 100px; text-align: right; font-size: 12px; }
+
+/* セクションタイトル */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.section-title { font-size: 15px; font-weight: 500; }
+
+/* スイッチ */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+.toggle-label { font-size: 13px; }
+
+/* ファイル操作 */
+.file-bar { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 0 4px; }
+
+/* 空状態 */
+.empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+.empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+/* 口座リスト */
+.account-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.account-item:last-child { border-bottom: none; }
+.account-name { flex: 1; font-size: 13px; font-weight: 500; }
+.account-balance { font-size: 14px; font-weight: 500; }
+.account-sub { font-size: 11px; color: var(--text3); }
+
+/* シミュレーター */
+.sim-card { background: var(--surface2); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">💴 CashFlow</div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchTab('dashboard')">ダッシュボード</div>
+    <div class="nav-tab" onclick="switchTab('accounts')">口座・カード</div>
+    <div class="nav-tab" onclick="switchTab('events')">予定</div>
+    <div class="nav-tab" onclick="switchTab('simulator')">シミュレーター</div>
+  </div>
+  <div class="nav-actions">
+    <button class="btn btn-sm" onclick="saveData()" title="保存">💾 保存</button>
+    <button class="btn btn-sm" onclick="document.getElementById('loadFile').click()" title="読込">📂 読込</button>
+    <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadData(event)">
+  </div>
+</nav>
+
+<!-- ダッシュボード -->
+<div id="page-dashboard" class="page active">
+  <div class="summary-grid" id="summaryGrid"></div>
+  <div id="alertArea"></div>
+  <div class="card">
+    <div class="card-title">
+      口座別残高推移（今後180日）
+      <div style="display:flex;gap:6px;align-items:center;">
+        <select id="chartRange" onchange="renderDashboard()" style="width:auto;font-size:12px;padding:4px 8px;">
+          <option value="30">30日</option>
+          <option value="60">60日</option>
+          <option value="90" selected>90日</option>
+          <option value="180">180日</option>
+        </select>
+      </div>
+    </div>
+    <div class="chart-wrapper"><canvas id="balanceChart" role="img" aria-label="口座別残高推移グラフ">残高推移を表示します</canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">直近のイベント</div>
+    <div id="recentEvents"></div>
+  </div>
+</div>
+
+<!-- 口座・カード管理 -->
+<div id="page-accounts" class="page">
+  <div class="section-header">
+    <div class="section-title">口座・カード管理</div>
+    <button class="btn btn-primary btn-sm" onclick="openAccountModal()">＋ 追加</button>
+  </div>
+  <div class="card">
+    <div id="accountList"><div class="empty"><div class="empty-icon">🏦</div>口座・カードを追加してください</div></div>
+  </div>
+  <div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-sm);font-size:12px;color:var(--text2);">
+    💡 クレジットカードを追加する際は、引き落とし銀行口座・締め日・支払日を設定すると残高予測の精度が上がります。
+  </div>
+</div>
+
+<!-- 予定管理 -->
+<div id="page-events" class="page">
+  <div class="section-header">
+    <div class="section-title">予定イベント</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-sm" onclick="openCsvModal()">📄 CSV取込</button>
+      <button class="btn btn-primary btn-sm" onclick="openEventModal()">＋ 追加</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <table>
+      <thead><tr><th>日付</th><th>内容</th><th>口座</th><th>種別</th><th>金額</th><th style="width:60px;"></th></tr></thead>
+      <tbody id="eventTable"><tr><td colspan="6" class="empty">予定を追加してください</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- シミュレーター -->
+<div id="page-simulator" class="page">
+  <div class="section-title" style="margin-bottom:14px;">移動シミュレーター</div>
+  <div class="card">
+    <div class="card-title">口座間移動を試算</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>移動元口座</label>
+        <select id="simFrom"></select>
+      </div>
+      <div class="form-group">
+        <label>移動先口座</label>
+        <select id="simTo"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>移動日</label>
+        <input type="date" id="simDate">
+      </div>
+      <div class="form-group">
+        <label>金額（円）</label>
+        <input type="number" id="simAmount" placeholder="100000">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="runSimulator()">試算する</button>
+  </div>
+  <div id="simResult"></div>
+
+  <div class="section-title" style="margin-bottom:14px;margin-top:20px;">不足額チェック</div>
+  <div class="card">
+    <div class="card-title">特定日時点での資金確認</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>確認したい日付</label>
+        <input type="date" id="checkDate">
+      </div>
+      <div class="form-group">
+        <label>必要金額（円）</label>
+        <input type="number" id="checkAmount" placeholder="200000">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>対象口座</label>
+      <select id="checkAccount"></select>
+    </div>
+    <button class="btn btn-primary" onclick="runShortfallCheck()">チェック</button>
+  </div>
+  <div id="checkResult"></div>
+</div>
+
+<!-- 口座モーダル -->
+<div class="modal-overlay" id="accountModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="accountModalTitle">口座を追加</div>
+      <button class="modal-close" onclick="closeModal('accountModal')">×</button>
+    </div>
+    <div class="form-group">
+      <label>口座名</label>
+      <input type="text" id="accName" placeholder="例：三菱UFJ普通預金">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>種別</label>
+        <select id="accType" onchange="toggleCreditFields()">
+          <option value="bank">銀行口座</option>
+          <option value="credit">クレジットカード</option>
+          <option value="cash">現金・電子マネー</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>現在残高（円）</label>
+        <input type="number" id="accBalance" placeholder="0">
+      </div>
+    </div>
+    <div id="creditFields" style="display:none;">
+      <div class="form-row-3">
+        <div class="form-group">
+          <label>引き落とし口座</label>
+          <select id="accDebitAccount"><option value="">選択...</option></select>
+        </div>
+        <div class="form-group">
+          <label>締め日</label>
+          <input type="number" id="accCloseDay" min="1" max="31" placeholder="15">
+        </div>
+        <div class="form-group">
+          <label>支払日</label>
+          <input type="number" id="accPayDay" min="1" max="31" placeholder="10">
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>メモ</label>
+      <input type="text" id="accNote" placeholder="任意">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('accountModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveAccount()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- イベントモーダル -->
+<div class="modal-overlay" id="eventModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="eventModalTitle">予定を追加</div>
+      <button class="modal-close" onclick="closeModal('eventModal')">×</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>日付</label>
+        <input type="date" id="evDate">
+      </div>
+      <div class="form-group">
+        <label>種別</label>
+        <select id="evType">
+          <option value="expense">支出</option>
+          <option value="income">収入</option>
+          <option value="transfer">口座移動</option>
+          <option value="credit_payment">クレカ引き落とし</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>内容</label>
+      <input type="text" id="evLabel" placeholder="例：楽天カード引き落とし">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>金額（円）</label>
+        <input type="number" id="evAmount" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>対象口座</label>
+        <select id="evAccount"></select>
+      </div>
+    </div>
+    <div class="form-group" id="evToAccountGroup" style="display:none;">
+      <label>移動先口座</label>
+      <select id="evToAccount"></select>
+    </div>
+    <div class="form-group">
+      <label>繰り返し</label>
+      <select id="evRepeat">
+        <option value="none">なし</option>
+        <option value="monthly">毎月</option>
+        <option value="yearly">毎年</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>確定/予測</label>
+      <select id="evConfirmed">
+        <option value="confirmed">確定</option>
+        <option value="estimated">予測</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('eventModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveEvent()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- CSV取込モーダル -->
+<div class="modal-overlay" id="csvModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Moneytree CSV 取込</div>
+      <button class="modal-close" onclick="closeModal('csvModal')">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+      Moneytree からエクスポートしたCSVファイルを選択してください。<br>
+      列形式：日付, 内容, カテゴリ, 金額
+    </div>
+    <div class="form-group">
+      <label>対象口座</label>
+      <select id="csvAccount"></select>
+    </div>
+    <div class="form-group">
+      <label>CSVファイル</label>
+      <input type="file" id="csvFile" accept=".csv">
+    </div>
+    <div id="csvPreview" style="margin-top:8px;font-size:12px;color:var(--text3);"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('csvModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="importCsv()">取込実行</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== データ ======
+let state = {
+  accounts: [],
+  events: [],
+  settings: { warningThreshold: 30000 }
+};
+
+let editAccountId = null;
+let editEventId = null;
+let balanceChartInstance = null;
+
+// ====== ユーティリティ ======
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function fmt(n) { return n < 0 ? '-¥' + Math.abs(n).toLocaleString() : '¥' + n.toLocaleString(); }
+function fmtDate(d) { return d ? d.slice(5).replace('-','/') : ''; }
+function today() { return new Date().toISOString().slice(0,10); }
+function addDays(dateStr, n) {
+  const d = new Date(dateStr); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10);
+}
+function daysBetween(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+// ====== タブ切替 ======
+function switchTab(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const tabs = document.querySelectorAll('.nav-tab');
+  const names = ['dashboard','accounts','events','simulator'];
+  tabs[names.indexOf(name)].classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'accounts') renderAccounts();
+  if (name === 'events') renderEvents();
+  if (name === 'simulator') renderSimulator();
+}
+
+// ====== キャッシュフロー計算 ======
+function getExpandedEvents(days) {
+  const t = today();
+  const end = addDays(t, days);
+  const expanded = [];
+  for (const ev of state.events) {
+    if (ev.repeat === 'none' || !ev.repeat) {
+      if (ev.date >= t && ev.date <= end) expanded.push({...ev});
+    } else if (ev.repeat === 'monthly') {
+      let d = new Date(ev.date);
+      for (let i = 0; i < days / 28 + 2; i++) {
+        const ds = d.toISOString().slice(0,10);
+        if (ds > end) break;
+        if (ds >= t) expanded.push({...ev, date: ds, id: ev.id + '_' + i});
+        d.setMonth(d.getMonth() + 1);
+      }
+    } else if (ev.repeat === 'yearly') {
+      let d = new Date(ev.date);
+      for (let i = 0; i < 2; i++) {
+        const ds = d.toISOString().slice(0,10);
+        if (ds > end) break;
+        if (ds >= t) expanded.push({...ev, date: ds, id: ev.id + '_' + i});
+        d.setFullYear(d.getFullYear() + 1);
+      }
+    }
+  }
+  return expanded.sort((a,b) => a.date.localeCompare(b.date));
+}
+
+function calcBalances(days) {
+  // 口座ごとの残高推移を計算
+  const result = {}; // accountId -> [{date, balance}]
+  for (const acc of state.accounts) {
+    result[acc.id] = { name: acc.name, type: acc.type, series: [] };
+  }
+  const events = getExpandedEvents(days);
+  const t = today();
+  
+  // 現在残高をコピー
+  const balances = {};
+  for (const acc of state.accounts) balances[acc.id] = acc.balance || 0;
+
+  // 日付ループ
+  for (let i = 0; i <= days; i++) {
+    const d = addDays(t, i);
+    // その日のイベント適用
+    const dayEvents = events.filter(e => e.date === d);
+    for (const ev of dayEvents) {
+      if (ev.type === 'income') { balances[ev.accountId] = (balances[ev.accountId] || 0) + ev.amount; }
+      else if (ev.type === 'expense' || ev.type === 'credit_payment') { balances[ev.accountId] = (balances[ev.accountId] || 0) - ev.amount; }
+      else if (ev.type === 'transfer') {
+        balances[ev.accountId] = (balances[ev.accountId] || 0) - ev.amount;
+        if (ev.toAccountId) balances[ev.toAccountId] = (balances[ev.toAccountId] || 0) + ev.amount;
+      }
+    }
+    if (i % 3 === 0 || i === days) {
+      for (const accId in balances) {
+        if (result[accId]) result[accId].series.push({ date: d, balance: balances[accId] });
+      }
+    }
+  }
+  return result;
+}
+
+function getAlerts(days) {
+  const alerts = [];
+  const events = getExpandedEvents(days);
+  const balances = {};
+  for (const acc of state.accounts) balances[acc.id] = acc.balance || 0;
+  const t = today();
+  
+  for (let i = 0; i <= days; i++) {
+    const d = addDays(t, i);
+    const dayEvents = events.filter(e => e.date === d);
+    for (const ev of dayEvents) {
+      if (ev.type === 'income') { balances[ev.accountId] = (balances[ev.accountId] || 0) + ev.amount; }
+      else if (ev.type === 'expense' || ev.type === 'credit_payment') {
+        balances[ev.accountId] = (balances[ev.accountId] || 0) - ev.amount;
+        if (balances[ev.accountId] < 0) {
+          const acc = state.accounts.find(a => a.id === ev.accountId);
+          alerts.push({ type: 'danger', date: d, message: `${fmtDate(d)} 「${ev.label}」で${acc ? acc.name : '口座'}が残高不足（${fmt(balances[ev.accountId])}）`, shortfall: Math.abs(balances[ev.accountId]) });
+        } else if (balances[ev.accountId] < (state.settings.warningThreshold || 30000)) {
+          const acc = state.accounts.find(a => a.id === ev.accountId);
+          alerts.push({ type: 'warning', date: d, message: `${fmtDate(d)} 「${acc ? acc.name : '口座'}」の残高が${fmt(balances[ev.accountId])}に減少` });
+        }
+      } else if (ev.type === 'transfer') {
+        balances[ev.accountId] = (balances[ev.accountId] || 0) - ev.amount;
+        if (ev.toAccountId) balances[ev.toAccountId] = (balances[ev.toAccountId] || 0) + ev.amount;
+      }
+    }
+  }
+  // dedup
+  const seen = new Set();
+  return alerts.filter(a => { const k = a.date + a.message; if(seen.has(k)) return false; seen.add(k); return true; }).slice(0, 5);
+}
+
+// ====== ダッシュボード ======
+function renderDashboard() {
+  const days = parseInt(document.getElementById('chartRange').value) || 90;
+  
+  // サマリー
+  const totalBank = state.accounts.filter(a => a.type === 'bank' || a.type === 'cash').reduce((s,a) => s + (a.balance||0), 0);
+  const totalCredit = state.accounts.filter(a => a.type === 'credit').reduce((s,a) => s + (a.balance||0), 0);
+  const alerts = getAlerts(days);
+  
+  document.getElementById('summaryGrid').innerHTML = `
+    <div class="metric"><div class="metric-label">銀行・現金 合計</div><div class="metric-value ${totalBank < 0 ? 'danger' : totalBank < 100000 ? 'warning' : 'ok'}">${fmt(totalBank)}</div></div>
+    <div class="metric"><div class="metric-label">クレカ 未払い合計</div><div class="metric-value ${totalCredit < -100000 ? 'danger' : 'warning'}">${fmt(totalCredit)}</div></div>
+    <div class="metric"><div class="metric-label">純資産</div><div class="metric-value ${totalBank + totalCredit < 0 ? 'danger' : 'ok'}">${fmt(totalBank + totalCredit)}</div></div>
+    <div class="metric"><div class="metric-label">警告件数（${days}日以内）</div><div class="metric-value ${alerts.length > 0 ? 'danger' : 'ok'}">${alerts.length}件</div></div>
+  `;
+  
+  // アラート
+  const alertArea = document.getElementById('alertArea');
+  if (alerts.length === 0) {
+    alertArea.innerHTML = `<div class="alert alert-ok"><span class="alert-icon">✓</span>${days}日以内に残高不足の予定はありません</div>`;
+  } else {
+    alertArea.innerHTML = alerts.map(a => `
+      <div class="alert alert-${a.type}">
+        <span class="alert-icon">${a.type === 'danger' ? '⚠' : '!'}</span>
+        <span>${a.message}${a.shortfall ? `　→　キャッシング目安：${fmt(a.shortfall)}` : ''}</span>
+      </div>`).join('');
+  }
+  
+  // チャート
+  const balData = calcBalances(days);
+  const bankAccs = state.accounts.filter(a => a.type === 'bank' || a.type === 'cash');
+  
+  if (bankAccs.length === 0) {
+    document.getElementById('balanceChart').parentElement.innerHTML = '<div class="empty"><div class="empty-icon">📊</div>口座を追加するとグラフが表示されます</div>';
+  } else {
+    const palette = ['#1d9e75','#185fa5','#ba7517','#a32d2d','#534ab7','#3b6d11'];
+    const labels = balData[bankAccs[0].id]?.series.map(s => fmtDate(s.date)) || [];
+    const datasets = bankAccs.map((acc, i) => ({
+      label: acc.name,
+      data: (balData[acc.id]?.series || []).map(s => s.balance),
+      borderColor: palette[i % palette.length],
+      backgroundColor: palette[i % palette.length] + '20',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false
+    }));
+    
+    if (balanceChartInstance) balanceChartInstance.destroy();
+    const ctx = document.getElementById('balanceChart');
+    if (ctx) {
+      balanceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } } },
+          scales: {
+            y: { ticks: { callback: v => v >= 0 ? '¥' + (v/10000).toFixed(0) + '万' : '-¥' + (Math.abs(v)/10000).toFixed(0) + '万', font: { size: 11 } }, grid: { color: 'rgba(128,128,128,0.1)' } },
+            x: { ticks: { maxTicksLimit: 8, font: { size: 11 } }, grid: { display: false } }
+          }
+        }
+      });
+    }
+  }
+  
+  // 直近イベント
+  const events = getExpandedEvents(30).slice(0, 8);
+  if (events.length === 0) {
+    document.getElementById('recentEvents').innerHTML = '<div class="empty">予定がありません</div>';
+  } else {
+    const balances = {};
+    for (const acc of state.accounts) balances[acc.id] = acc.balance || 0;
+    document.getElementById('recentEvents').innerHTML = events.map(ev => {
+      const acc = state.accounts.find(a => a.id === ev.accountId);
+      const isOut = ev.type === 'expense' || ev.type === 'credit_payment';
+      const isIn = ev.type === 'income';
+      if (isOut) balances[ev.accountId] = (balances[ev.accountId] || 0) - ev.amount;
+      else if (isIn) balances[ev.accountId] = (balances[ev.accountId] || 0) + ev.amount;
+      const bal = balances[ev.accountId];
+      return `<div class="timeline-row">
+        <div class="timeline-date">${fmtDate(ev.date)}</div>
+        <div class="timeline-label"><div>${ev.label}</div><div class="timeline-account">${acc ? acc.name : ''}</div></div>
+        <div class="timeline-amount ${isOut ? 'amount-negative' : isIn ? 'amount-positive' : ''}">${isOut ? '-' : isIn ? '+' : ''}${fmt(ev.amount)}</div>
+        <div class="timeline-balance" style="color:${bal < 0 ? 'var(--danger)' : bal < 30000 ? 'var(--warning)' : 'var(--text3)'}">${acc ? fmt(bal) : ''}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ====== 口座管理 ======
+function renderAccounts() {
+  if (state.accounts.length === 0) {
+    document.getElementById('accountList').innerHTML = '<div class="empty"><div class="empty-icon">🏦</div>口座・カードを追加してください</div>';
+    return;
+  }
+  document.getElementById('accountList').innerHTML = state.accounts.map(acc => `
+    <div class="account-item">
+      <span class="badge ${acc.type === 'bank' ? 'badge-bank' : acc.type === 'credit' ? 'badge-credit' : 'badge-cash'}">${acc.type === 'bank' ? '銀行' : acc.type === 'credit' ? 'クレカ' : '現金'}</span>
+      <div style="flex:1;">
+        <div class="account-name">${acc.name}</div>
+        ${acc.type === 'credit' ? `<div class="account-sub">締:${acc.closeDay}日 / 払:${acc.payDay}日${acc.debitAccountId ? ' / ' + (state.accounts.find(a=>a.id===acc.debitAccountId)?.name||'') : ''}</div>` : ''}
+        ${acc.note ? `<div class="account-sub">${acc.note}</div>` : ''}
+      </div>
+      <div style="text-align:right;">
+        <div class="account-balance ${(acc.balance||0) < 0 ? 'amount-negative' : ''}">${fmt(acc.balance||0)}</div>
+      </div>
+      <button class="btn btn-sm" onclick="openAccountModal('${acc.id}')">編集</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteAccount('${acc.id}')">削除</button>
+    </div>
+  `).join('');
+}
+
+function openAccountModal(id) {
+  editAccountId = id || null;
+  const modal = document.getElementById('accountModal');
+  document.getElementById('accountModalTitle').textContent = id ? '口座を編集' : '口座を追加';
+  
+  // 引き落とし口座セレクト更新
+  const banks = state.accounts.filter(a => a.type === 'bank');
+  document.getElementById('accDebitAccount').innerHTML = '<option value="">選択...</option>' + banks.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  
+  if (id) {
+    const acc = state.accounts.find(a => a.id === id);
+    document.getElementById('accName').value = acc.name;
+    document.getElementById('accType').value = acc.type;
+    document.getElementById('accBalance').value = acc.balance || 0;
+    document.getElementById('accCloseDay').value = acc.closeDay || '';
+    document.getElementById('accPayDay').value = acc.payDay || '';
+    document.getElementById('accDebitAccount').value = acc.debitAccountId || '';
+    document.getElementById('accNote').value = acc.note || '';
+    toggleCreditFields();
+  } else {
+    document.getElementById('accName').value = '';
+    document.getElementById('accType').value = 'bank';
+    document.getElementById('accBalance').value = '';
+    document.getElementById('accCloseDay').value = '';
+    document.getElementById('accPayDay').value = '';
+    document.getElementById('accDebitAccount').value = '';
+    document.getElementById('accNote').value = '';
+    document.getElementById('creditFields').style.display = 'none';
+  }
+  modal.classList.add('open');
+}
+
+function toggleCreditFields() {
+  document.getElementById('creditFields').style.display = document.getElementById('accType').value === 'credit' ? 'block' : 'none';
+}
+
+function saveAccount() {
+  const name = document.getElementById('accName').value.trim();
+  if (!name) { alert('口座名を入力してください'); return; }
+  const acc = {
+    id: editAccountId || uid(),
+    name,
+    type: document.getElementById('accType').value,
+    balance: parseFloat(document.getElementById('accBalance').value) || 0,
+    closeDay: parseInt(document.getElementById('accCloseDay').value) || null,
+    payDay: parseInt(document.getElementById('accPayDay').value) || null,
+    debitAccountId: document.getElementById('accDebitAccount').value || null,
+    note: document.getElementById('accNote').value.trim()
+  };
+  if (editAccountId) {
+    const idx = state.accounts.findIndex(a => a.id === editAccountId);
+    state.accounts[idx] = acc;
+  } else {
+    state.accounts.push(acc);
+  }
+  closeModal('accountModal');
+  renderAccounts();
+}
+
+function deleteAccount(id) {
+  if (!confirm('この口座を削除しますか？')) return;
+  state.accounts = state.accounts.filter(a => a.id !== id);
+  renderAccounts();
+}
+
+// ====== 予定管理 ======
+function renderEvents() {
+  const tbody = document.getElementById('eventTable');
+  if (state.events.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">予定を追加してください</td></tr>';
+    return;
+  }
+  const sorted = [...state.events].sort((a,b) => a.date.localeCompare(b.date));
+  tbody.innerHTML = sorted.map(ev => {
+    const acc = state.accounts.find(a => a.id === ev.accountId);
+    const typeLabel = {income:'収入',expense:'支出',transfer:'移動',credit_payment:'引落'}[ev.type] || ev.type;
+    const badgeClass = {income:'badge-income',expense:'badge-expense',transfer:'badge-transfer',credit_payment:'badge-credit'}[ev.type] || '';
+    const repeatLabel = {none:'',monthly:'毎月',yearly:'毎年'}[ev.repeat||'none'];
+    return `<tr>
+      <td>${fmtDate(ev.date)}${ev.repeat !== 'none' ? ` <span style="font-size:10px;color:var(--text3)">${repeatLabel}</span>` : ''}</td>
+      <td>${ev.label}${ev.confirmed === 'estimated' ? ' <span style="font-size:10px;color:var(--text3)">(予測)</span>' : ''}</td>
+      <td style="font-size:12px;">${acc ? acc.name : '-'}</td>
+      <td><span class="badge ${badgeClass}">${typeLabel}</span></td>
+      <td class="${ev.type === 'income' ? 'amount-positive' : ev.type !== 'transfer' ? 'amount-negative' : ''}">${fmt(ev.amount)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="openEventModal('${ev.id}')">編集</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEvent('${ev.id}')">削除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openEventModal(id) {
+  editEventId = id || null;
+  const accs = state.accounts;
+  const accOptions = accs.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  document.getElementById('evAccount').innerHTML = '<option value="">選択...</option>' + accOptions;
+  document.getElementById('evToAccount').innerHTML = '<option value="">選択...</option>' + accOptions;
+  document.getElementById('eventModalTitle').textContent = id ? '予定を編集' : '予定を追加';
+  
+  if (id) {
+    const ev = state.events.find(e => e.id === id);
+    document.getElementById('evDate').value = ev.date;
+    document.getElementById('evType').value = ev.type;
+    document.getElementById('evLabel').value = ev.label;
+    document.getElementById('evAmount').value = ev.amount;
+    document.getElementById('evAccount').value = ev.accountId || '';
+    document.getElementById('evToAccount').value = ev.toAccountId || '';
+    document.getElementById('evRepeat').value = ev.repeat || 'none';
+    document.getElementById('evConfirmed').value = ev.confirmed || 'confirmed';
+  } else {
+    document.getElementById('evDate').value = today();
+    document.getElementById('evType').value = 'expense';
+    document.getElementById('evLabel').value = '';
+    document.getElementById('evAmount').value = '';
+    document.getElementById('evAccount').value = '';
+    document.getElementById('evToAccount').value = '';
+    document.getElementById('evRepeat').value = 'none';
+    document.getElementById('evConfirmed').value = 'confirmed';
+  }
+  toggleTransferField();
+  document.getElementById('evType').addEventListener('change', toggleTransferField);
+  document.getElementById('eventModal').classList.add('open');
+}
+
+function toggleTransferField() {
+  document.getElementById('evToAccountGroup').style.display = document.getElementById('evType').value === 'transfer' ? 'block' : 'none';
+}
+
+function saveEvent() {
+  const date = document.getElementById('evDate').value;
+  const label = document.getElementById('evLabel').value.trim();
+  const amount = parseFloat(document.getElementById('evAmount').value);
+  if (!date || !label || isNaN(amount) || amount <= 0) { alert('日付・内容・金額を正しく入力してください'); return; }
+  const ev = {
+    id: editEventId || uid(),
+    date, label, amount,
+    type: document.getElementById('evType').value,
+    accountId: document.getElementById('evAccount').value || null,
+    toAccountId: document.getElementById('evToAccount').value || null,
+    repeat: document.getElementById('evRepeat').value,
+    confirmed: document.getElementById('evConfirmed').value
+  };
+  if (editEventId) {
+    const idx = state.events.findIndex(e => e.id === editEventId);
+    state.events[idx] = ev;
+  } else {
+    state.events.push(ev);
+  }
+  closeModal('eventModal');
+  renderEvents();
+}
+
+function deleteEvent(id) {
+  if (!confirm('この予定を削除しますか？')) return;
+  state.events = state.events.filter(e => e.id !== id);
+  renderEvents();
+}
+
+// ====== CSV取込 ======
+function openCsvModal() {
+  const accOptions = state.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  document.getElementById('csvAccount').innerHTML = '<option value="">選択...</option>' + accOptions;
+  document.getElementById('csvPreview').textContent = '';
+  document.getElementById('csvModal').classList.add('open');
+}
+
+function importCsv() {
+  const file = document.getElementById('csvFile').files[0];
+  const accId = document.getElementById('csvAccount').value;
+  if (!file) { alert('CSVファイルを選択してください'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    let imported = 0;
+    for (const line of lines) {
+      const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g,''));
+      if (cols.length < 4 || !cols[0].match(/\d{4}/)) continue;
+      const date = cols[0].replace(/\//g,'-').slice(0,10);
+      const label = cols[1] || '明細';
+      const amount = Math.abs(parseFloat(cols[3].replace(/[^\d.-]/g,'')));
+      const isNeg = parseFloat(cols[3].replace(/[^\d.-]/g,'')) < 0;
+      if (isNaN(amount) || amount === 0) continue;
+      state.events.push({ id: uid(), date, label, amount, type: isNeg ? 'expense' : 'income', accountId: accId || null, repeat: 'none', confirmed: 'confirmed' });
+      imported++;
+    }
+    document.getElementById('csvPreview').textContent = `${imported}件を取り込みました`;
+    renderEvents();
+  };
+  reader.readAsText(file, 'UTF-8');
+  closeModal('csvModal');
+}
+
+// ====== シミュレーター ======
+function renderSimulator() {
+  const bankAccs = state.accounts.filter(a => a.type !== 'credit');
+  const opts = bankAccs.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  document.getElementById('simFrom').innerHTML = opts;
+  document.getElementById('simTo').innerHTML = opts;
+  document.getElementById('checkAccount').innerHTML = opts;
+  document.getElementById('simDate').value = today();
+  document.getElementById('checkDate').value = addDays(today(), 30);
+}
+
+function runSimulator() {
+  const fromId = document.getElementById('simFrom').value;
+  const toId = document.getElementById('simTo').value;
+  const date = document.getElementById('simDate').value;
+  const amount = parseFloat(document.getElementById('simAmount').value);
+  if (!fromId || !toId || !date || isNaN(amount) || amount <= 0) { alert('すべての項目を入力してください'); return; }
+  if (fromId === toId) { alert('移動元と移動先が同じです'); return; }
+  
+  const fromAcc = state.accounts.find(a => a.id === fromId);
+  const toAcc = state.accounts.find(a => a.id === toId);
+  
+  // 移動後の残高計算
+  const tempState = JSON.parse(JSON.stringify(state));
+  tempState.events.push({ id: 'sim_tmp', date, label: '[試算]口座移動', amount, type: 'transfer', accountId: fromId, toAccountId: toId, repeat: 'none', confirmed: 'confirmed' });
+  
+  const days = 90;
+  const t = today();
+  const balBefore = {};
+  const balAfter = {};
+  for (const acc of state.accounts) { balBefore[acc.id] = acc.balance || 0; balAfter[acc.id] = acc.balance || 0; }
+  
+  const eventsBefore = getExpandedEvents(days);
+  const eventsAfter = [...eventsBefore, { id: 'sim_tmp', date, label: '[試算]口座移動', amount, type: 'transfer', accountId: fromId, toAccountId: toId }];
+  
+  // 移動日時点の残高
+  for (let i = 0; i <= daysBetween(t, date); i++) {
+    const d = addDays(t, i);
+    for (const ev of eventsBefore.filter(e => e.date === d)) applyEvent(ev, balBefore);
+    for (const ev of eventsAfter.filter(e => e.date === d)) applyEvent(ev, balAfter);
+  }
+  
+  document.getElementById('simResult').innerHTML = `
+    <div class="sim-card">
+      <div style="font-size:13px;font-weight:500;margin-bottom:10px;">試算結果：${fmtDate(date)}時点</div>
+      <table style="width:100%;">
+        <tr><th></th><th>移動前</th><th>移動後（試算）</th></tr>
+        <tr><td>${fromAcc.name}</td><td>${fmt(balBefore[fromId])}</td><td class="${balAfter[fromId] < 0 ? 'amount-negative' : 'amount-positive'}">${fmt(balAfter[fromId])}</td></tr>
+        <tr><td>${toAcc.name}</td><td>${fmt(balBefore[toId])}</td><td class="amount-positive">${fmt(balAfter[toId])}</td></tr>
+      </table>
+      ${balAfter[fromId] < 0 ? `<div class="alert alert-danger" style="margin-top:10px;"><span class="alert-icon">⚠</span>移動後に${fromAcc.name}が残高不足になります</div>` : '<div class="alert alert-ok" style="margin-top:10px;"><span class="alert-icon">✓</span>移動後も残高は問題ありません</div>'}
+    </div>`;
+}
+
+function applyEvent(ev, balances) {
+  if (ev.type === 'income') balances[ev.accountId] = (balances[ev.accountId]||0) + ev.amount;
+  else if (ev.type === 'expense' || ev.type === 'credit_payment') balances[ev.accountId] = (balances[ev.accountId]||0) - ev.amount;
+  else if (ev.type === 'transfer') { balances[ev.accountId] = (balances[ev.accountId]||0) - ev.amount; if(ev.toAccountId) balances[ev.toAccountId] = (balances[ev.toAccountId]||0) + ev.amount; }
+}
+
+function runShortfallCheck() {
+  const accId = document.getElementById('checkAccount').value;
+  const date = document.getElementById('checkDate').value;
+  const need = parseFloat(document.getElementById('checkAmount').value);
+  if (!accId || !date || isNaN(need) || need <= 0) { alert('すべての項目を入力してください'); return; }
+  
+  const acc = state.accounts.find(a => a.id === accId);
+  const t = today();
+  const days = daysBetween(t, date);
+  const balances = {};
+  for (const a of state.accounts) balances[a.id] = a.balance || 0;
+  const events = getExpandedEvents(Math.max(days, 1));
+  for (let i = 0; i <= days; i++) {
+    const d = addDays(t, i);
+    for (const ev of events.filter(e => e.date === d)) applyEvent(ev, balances);
+  }
+  
+  const projected = balances[accId] || 0;
+  const shortfall = need - projected;
+  
+  document.getElementById('checkResult').innerHTML = `
+    <div class="sim-card">
+      <div style="font-size:13px;font-weight:500;margin-bottom:10px;">${fmtDate(date)}時点 「${acc.name}」</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div class="metric"><div class="metric-label">予測残高</div><div class="metric-value ${projected < 0 ? 'danger' : 'ok'}">${fmt(projected)}</div></div>
+        <div class="metric"><div class="metric-label">必要金額</div><div class="metric-value">${fmt(need)}</div></div>
+        <div class="metric"><div class="metric-label">${shortfall > 0 ? '不足額' : '余裕'}</div><div class="metric-value ${shortfall > 0 ? 'danger' : 'ok'}">${fmt(Math.abs(shortfall))}</div></div>
+      </div>
+      ${shortfall > 0
+        ? `<div class="alert alert-danger" style="margin-top:10px;"><span class="alert-icon">⚠</span>${fmt(shortfall)}不足しています。他口座からの移動またはキャッシングを検討してください。</div>`
+        : `<div class="alert alert-ok" style="margin-top:10px;"><span class="alert-icon">✓</span>${fmt(-shortfall)}の余裕があります。</div>`}
+    </div>`;
+}
+
+// ====== モーダル ======
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+// ====== 保存・読込 ======
+function saveData() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cashflow_data.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      state = JSON.parse(e.target.result);
+      renderDashboard();
+      alert('データを読み込みました');
+    } catch(err) { alert('ファイルの読み込みに失敗しました'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ====== 初期化 ======
+renderDashboard();
+</script>
+</body>
+</html>
