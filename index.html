@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
+<!-- v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -206,6 +207,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
     <div class="nav-tab" onclick="switchTab('accounts')">口座・カード</div>
     <div class="nav-tab" onclick="switchTab('events')">予定</div>
     <div class="nav-tab" onclick="switchTab('calendar')">カレンダー</div>
+    <div class="nav-tab" onclick="switchTab('passbook')">通帳</div>
     <div class="nav-tab" onclick="switchTab('simulator')">シミュレーター</div>
     <div class="nav-tab" onclick="switchTab('report')">レポート</div>
   </div>
@@ -305,6 +307,33 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
     <span style="color:var(--warning)">■低残高</span>
   </div>
   <div class="card" id="calDetail" style="display:none;"></div>
+</div>
+
+<!-- 通帳（資金の流れ） -->
+<div id="page-passbook" class="page">
+  <div class="section-header">
+    <div class="section-title">通帳（資金の流れ）</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select id="pbRange" onchange="renderPassbook()" style="width:auto;font-size:12px;padding:4px 8px;">
+        <option value="90">今後90日</option>
+        <option value="180" selected>今後180日</option>
+        <option value="365">今後365日</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--text2);">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="pbConfirmedOnly" onchange="renderPassbook()" style="width:auto;">確定のみ表示</label>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="pbShowTopup" checked onchange="renderPassbook()" style="width:auto;">補填後の線を表示</label>
+  </div>
+  <div class="summary-grid" id="pbSummary"></div>
+  <div class="card">
+    <div class="card-title">残高の流れ（合算）<span id="pbChartNote" style="font-size:11px;color:var(--text3);font-weight:400;"></span></div>
+    <div id="pbLegend" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:8px;font-size:11px;color:var(--text2);"></div>
+    <div class="chart-wrapper"><canvas id="pbChart" role="img" aria-label="合算残高の推移グラフ（確定のみ・確定＋予測・補填後）">残高の流れを表示します</canvas></div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div id="pbLedger"></div>
+  </div>
 </div>
 
 <!-- シミュレーター -->
@@ -603,12 +632,13 @@ function switchTab(name) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   const tabs = document.querySelectorAll('.nav-tab');
-  const names = ['dashboard','accounts','events','calendar','simulator','report'];
+  const names = ['dashboard','accounts','events','calendar','passbook','simulator','report'];
   tabs[names.indexOf(name)].classList.add('active');
   if (name === 'dashboard') renderDashboard();
   if (name === 'accounts') renderAccounts();
   if (name === 'events') renderEvents();
   if (name === 'calendar') renderCalendar();
+  if (name === 'passbook') renderPassbook();
   if (name === 'simulator') renderSimulator();
   if (name === 'report') renderReport();
 }
@@ -1531,6 +1561,264 @@ function loadData(event) {
   };
   reader.readAsText(file);
   event.target.value = '';
+}
+
+// ====== 通帳（資金の流れ） ======
+let passbookChartInstance = null;
+
+// 合算（銀行＋現金）への影響額。confirmedOnly時は確定イベントのみ算入
+function pbCombinedDelta(ev, cashIds, confirmedOnly) {
+  if (confirmedOnly && ev.confirmed !== 'confirmed') return 0;
+  if (ev.type === 'income') return cashIds.has(ev.accountId) ? ev.amount : 0;
+  if (ev.type === 'expense' || ev.type === 'credit_payment') return cashIds.has(ev.accountId) ? -ev.amount : 0;
+  if (ev.type === 'transfer') {
+    let d = 0;
+    if (cashIds.has(ev.accountId)) d -= ev.amount;
+    if (ev.toAccountId && cashIds.has(ev.toAccountId)) d += ev.amount;
+    return d;
+  }
+  return 0; // card_charge は銀行残高に効かせない
+}
+
+function computePassbook(days) {
+  const t = today();
+  const thr = (state.settings && state.settings.warningThreshold) || 30000;
+  const cash = state.accounts.filter(a => a.type !== 'credit');
+  const cashIds = new Set(cash.map(a => a.id));
+  const events = getExpandedEvents(days);
+
+  const startCombined = cash.reduce((s, a) => s + (a.balance || 0), 0);
+
+  // 口座別の予測残高推移（移動検出用）
+  const bal = {};
+  for (const a of state.accounts) bal[a.id] = a.balance || 0;
+  const stat = {};
+  for (const a of cash) stat[a.id] = { min: bal[a.id], minDate: t, firstNeg: (bal[a.id] < 0 ? t : null), firstBreach: (bal[a.id] < thr ? t : null) };
+
+  let combBoth = startCombined, combConf = startCombined;
+  let combMin = startCombined, combMinDate = t;
+  let combFirstNeg = (startCombined < 0 ? t : null);
+  let combFirstBreach = (startCombined < thr ? t : null);
+
+  const dailyComb = {}; dailyComb[t] = combBoth;
+  const series = [{ date: t, conf: combConf, both: combBoth }];
+  const rows = [];
+
+  for (let i = 0; i <= days; i++) {
+    const d = addDays(t, i);
+    const dayEvents = events.filter(e => e.date === d);
+    for (const ev of dayEvents) {
+      applyEvent(ev, bal);
+      combBoth += pbCombinedDelta(ev, cashIds, false);
+      combConf += pbCombinedDelta(ev, cashIds, true);
+      if (ev.type !== 'card_charge') rows.push({ date: d, ev: ev, both: combBoth, conf: combConf });
+    }
+    for (const a of cash) {
+      const b = bal[a.id], s = stat[a.id];
+      if (b < s.min) { s.min = b; s.minDate = d; }
+      if (b < 0 && !s.firstNeg) s.firstNeg = d;
+      if (b < thr && !s.firstBreach) s.firstBreach = d;
+    }
+    if (combBoth < combMin) { combMin = combBoth; combMinDate = d; }
+    if (combBoth < 0 && !combFirstNeg) combFirstNeg = d;
+    if (combBoth < thr && !combFirstBreach) combFirstBreach = d;
+    dailyComb[d] = combBoth;
+    if (dayEvents.length || i === days || i % 7 === 0) series.push({ date: d, conf: combConf, both: combBoth });
+  }
+
+  // 補填（合算・しきい値維持／一括）
+  const topupNeeded = combMin < thr;
+  const topupAmount = topupNeeded ? (thr - combMin) : 0;
+  const topupDate = combFirstBreach;
+
+  // 移動（口座個別・合算は足りているケース）
+  const moves = [];
+  for (const a of cash) {
+    const s = stat[a.id];
+    if (!s.firstBreach) continue;
+    const combOnDate = dailyComb[s.firstBreach];
+    if (combOnDate === undefined || combOnDate < thr) continue; // 合算も不足 → 補填側で扱う
+    const need = thr - s.min;
+    const sources = cash.filter(x => x.id !== a.id && (stat[x.id].min - thr) > 0)
+                        .sort((p, q) => (stat[q.id].min - thr) - (stat[p.id].min - thr));
+    const src = sources.find(x => (stat[x.id].min - thr) >= need) || sources[0] || null;
+    moves.push({ acc: a, date: s.firstBreach, need: need, min: s.min, minDate: s.minDate, src: src });
+  }
+  moves.sort((x, y) => x.date.localeCompare(y.date));
+
+  return { t, thr, cash, cashIds, startCombined, series, rows, dailyComb,
+    combMin, combMinDate, combFirstNeg, combFirstBreach,
+    topupNeeded, topupAmount, topupDate, moves };
+}
+
+function renderPassbook() {
+  const days = parseInt(document.getElementById('pbRange').value) || 180;
+  const confirmedOnly = document.getElementById('pbConfirmedOnly').checked;
+  const showTopup = document.getElementById('pbShowTopup').checked;
+  const sumEl = document.getElementById('pbSummary');
+  const ledgerEl = document.getElementById('pbLedger');
+  const noteEl = document.getElementById('pbChartNote');
+  const legendEl = document.getElementById('pbLegend');
+
+  if (state.accounts.filter(a => a.type !== 'credit').length === 0) {
+    sumEl.innerHTML = ''; legendEl.innerHTML = ''; noteEl.textContent = '';
+    if (passbookChartInstance) { passbookChartInstance.destroy(); passbookChartInstance = null; }
+    ledgerEl.innerHTML = '<div class="empty"><div class="empty-icon">🏦</div>銀行・現金口座を追加すると通帳が表示されます</div>';
+    return;
+  }
+
+  const r = computePassbook(days);
+  const thr = r.thr;
+  const cashIds = r.cashIds;
+
+  // ---- サマリー ----
+  const cashoutCard = r.combFirstNeg
+    ? `<div class="metric"><div class="metric-label">合算キャッシュアウト</div><div class="metric-value danger">${fmtDate(r.combFirstNeg)}</div><div style="font-size:11px;color:var(--danger);">${fmt(r.combMin)}</div></div>`
+    : (r.combMin < thr
+        ? `<div class="metric"><div class="metric-label">合算キャッシュアウト</div><div class="metric-value warning">低残高</div><div style="font-size:11px;color:var(--warning);">最低 ${fmt(r.combMin)}</div></div>`
+        : `<div class="metric"><div class="metric-label">合算キャッシュアウト</div><div class="metric-value ok">なし</div><div style="font-size:11px;color:var(--text3);">最低 ${fmt(r.combMin)}</div></div>`);
+  const topupCard = r.topupNeeded
+    ? `<div class="metric"><div class="metric-label">必要な補填額</div><div class="metric-value ${r.combFirstNeg ? 'danger' : 'warning'}">${fmt(r.topupAmount)}</div><div style="font-size:11px;color:var(--text3);">${fmtDate(r.topupDate)}までに</div></div>`
+    : `<div class="metric"><div class="metric-label">必要な補填額</div><div class="metric-value ok">不要</div></div>`;
+  const afterCard = r.topupNeeded
+    ? `<div class="metric"><div class="metric-label">補填後の最低残高</div><div class="metric-value ok">${fmt(thr)}</div><div style="font-size:11px;color:var(--text3);">しきい値を維持</div></div>`
+    : `<div class="metric"><div class="metric-label">期間中の最低残高</div><div class="metric-value ${r.combMin < thr ? 'warning' : 'ok'}">${fmt(r.combMin)}</div></div>`;
+  const moveCard = `<div class="metric"><div class="metric-label">口座移動が必要</div><div class="metric-value ${r.moves.length ? 'warning' : 'ok'}">${r.moves.length}件</div>${r.moves.length ? `<div style="font-size:11px;color:var(--warning);">${fmtDate(r.moves[0].date)} ${r.moves[0].acc.name}</div>` : ''}</div>`;
+  sumEl.innerHTML = cashoutCard + topupCard + afterCard + moveCard;
+
+  // ---- 凡例＋チャート ----
+  const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const cBlue = dark ? '#85b7eb' : '#185fa5';
+  const cTeal = '#1d9e75';
+  const cPurple = dark ? '#7f77dd' : '#534ab7';
+  const cAmber = dark ? '#ef9f27' : '#ba7517';
+
+  const labels = r.series.map(p => fmtDate(p.date));
+  const confData = r.series.map(p => p.conf);
+  const bothData = r.series.map(p => p.both);
+  const thrData = r.series.map(() => thr);
+
+  const datasets = [];
+  const legendItems = [];
+  datasets.push({ label: '確定のみ', data: confData, borderColor: cBlue, borderWidth: 2, pointRadius: 0, tension: 0.25, fill: false, order: 3 });
+  legendItems.push(['確定のみ', cBlue, false]);
+  if (!confirmedOnly) {
+    datasets.push({ label: '確定＋予測', data: bothData, borderColor: cTeal, borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: 0.25, fill: false, order: 2 });
+    legendItems.push(['確定＋予測', cTeal, true]);
+    if (showTopup && r.topupNeeded) {
+      const afterData = r.series.map(p => p.both + (p.date >= r.topupDate ? r.topupAmount : 0));
+      datasets.push({ label: '補填後', data: afterData, borderColor: cPurple, borderWidth: 2, pointRadius: 0, tension: 0.25, fill: false, order: 1 });
+      legendItems.push(['補填後', cPurple, false]);
+    }
+  }
+  datasets.push({ label: 'しきい値', data: thrData, borderColor: cAmber, borderDash: [2, 3], borderWidth: 1.5, pointRadius: 0, fill: false, order: 4 });
+  legendItems.push(['しきい値 ' + fmt(thr), cAmber, true]);
+
+  legendEl.innerHTML = legendItems.map(it => `<span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;${it[2] ? 'height:0;border-top:2px dashed ' + it[1] : 'height:2px;background:' + it[1]};display:inline-block;"></span>${it[0]}</span>`).join('');
+  noteEl.textContent = confirmedOnly ? '（確定のみ）' : '';
+
+  if (passbookChartInstance) passbookChartInstance.destroy();
+  const ctx = document.getElementById('pbChart');
+  if (ctx) {
+    passbookChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmt(Math.round(c.parsed.y)) } } },
+        scales: {
+          y: { ticks: { callback: v => (v < 0 ? '-¥' : '¥') + (Math.abs(v) / 10000).toFixed(0) + '万', font: { size: 11 } }, grid: { color: 'rgba(128,128,128,0.1)' } },
+          x: { ticks: { maxTicksLimit: 8, font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // ---- 台帳 ----
+  const displayRows = confirmedOnly ? r.rows.filter(x => x.ev.confirmed === 'confirmed') : r.rows;
+
+  const annByDate = {};
+  const pushAnn = (date, html) => { (annByDate[date] = annByDate[date] || []).push(html); };
+  if (!confirmedOnly) {
+    for (const mv of r.moves) {
+      const srcTxt = mv.src
+        ? `<span style="color:var(--accent-dark)">${mv.src.name}</span> → ${mv.acc.name} へ <b>${fmt(mv.need)}</b> を ${fmtDate(mv.date)}までに移動`
+        : `${mv.acc.name} に ${fmt(mv.need)} 不足（移動できる余力のある口座がありません）`;
+      pushAnn(mv.date, `<div style="display:flex;gap:6px;padding:7px 12px;font-size:11px;color:var(--warning);background:var(--warning-bg);"><span>⇄</span><span>合算は足りているが ${srcTxt}</span></div>`);
+    }
+    if (r.topupNeeded) {
+      const annDate = r.combFirstNeg || r.combFirstBreach;
+      pushAnn(annDate, `<div style="display:flex;gap:6px;padding:7px 12px;font-size:11px;color:var(--danger);background:var(--danger-bg);"><span>＄</span><span>移動では解消不可 — 外部から <b>${fmt(r.topupAmount)}</b> の補填が必要（${fmtDate(r.topupDate)}までに／補填後は紫線へ）</span></div>`);
+    }
+  }
+
+  if (displayRows.length === 0) {
+    ledgerEl.innerHTML = '<div class="empty">表示できる予定がありません</div>';
+    return;
+  }
+
+  const monthSub = {};
+  for (const row of displayRows) {
+    const mk = row.date.slice(0, 7);
+    monthSub[mk] = monthSub[mk] || { inc: 0, exp: 0 };
+    const cd = pbCombinedDelta(row.ev, cashIds, false);
+    if (cd > 0) monthSub[mk].inc += cd; else if (cd < 0) monthSub[mk].exp += -cd;
+  }
+
+  let html = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;"><colgroup><col style="width:54px;"><col><col style="width:92px;"><col style="width:104px;"></colgroup><tbody>';
+  html += `<tr style="background:var(--surface2);"><td colspan="2" style="padding:7px 12px;font-size:12px;color:var(--text2);">${fmtDate(r.t)} 現在残高（合算）</td><td></td><td style="padding:7px 12px;text-align:right;font-weight:500;">${fmt(r.startCombined)}</td></tr>`;
+
+  let curMonth = null;
+  for (let idx = 0; idx < displayRows.length; idx++) {
+    const row = displayRows[idx];
+    const mk = row.date.slice(0, 7);
+    if (mk !== curMonth) {
+      curMonth = mk;
+      const mm = parseInt(mk.split('-')[1], 10);
+      const sub = monthSub[mk] || { inc: 0, exp: 0 };
+      const diff = sub.inc - sub.exp;
+      html += `<tr style="background:var(--surface2);"><td colspan="2" style="padding:6px 12px;font-size:12px;font-weight:500;">${mm}月</td><td colspan="2" style="padding:6px 12px;text-align:right;font-size:11px;color:var(--text2);">収+${sub.inc.toLocaleString()} / 支-${sub.exp.toLocaleString()} / 差<span style="color:${diff >= 0 ? 'var(--accent)' : 'var(--danger)'};">${diff >= 0 ? '+' : ''}${diff.toLocaleString()}</span></td></tr>`;
+    }
+    const ev = row.ev;
+    const runBal = confirmedOnly ? row.conf : row.both;
+    const cd = pbCombinedDelta(ev, cashIds, false);
+    const isIn = cd > 0, isOut = cd < 0;
+    const est = ev.confirmed === 'estimated';
+    const acc = state.accounts.find(a => a.id === ev.accountId);
+    let rowBg = '', txtCol = '';
+    if (runBal < 0) { rowBg = 'background:var(--danger-bg);'; txtCol = 'color:var(--danger);'; }
+    else if (runBal < thr) { rowBg = 'background:var(--warning-bg);'; txtCol = 'color:var(--warning);'; }
+    const labelCol = est ? 'color:var(--text3);' : '';
+    const estBadge = est ? '<span style="display:inline-block;font-size:10px;padding:1px 5px;margin-left:5px;border-radius:4px;background:var(--surface2);color:var(--text3);">予測</span>' : '';
+    let amtCell;
+    if (ev.type === 'transfer') {
+      amtCell = `<span style="color:var(--info);">⇄ ¥${ev.amount.toLocaleString()}</span>`;
+    } else {
+      const amtCol = isOut ? 'color:var(--danger);' : isIn ? 'color:var(--accent);' : 'color:var(--text3);';
+      amtCell = `<span style="${est ? 'color:var(--text3);' : amtCol}font-weight:${(isIn || isOut) ? '500' : '400'};">${(isOut ? '-' : isIn ? '+' : '') + '¥' + Math.abs(cd).toLocaleString()}</span>`;
+    }
+    const subLine = (acc ? acc.name : '') + (ev.type === 'transfer' ? ' → ' + ((state.accounts.find(a => a.id === ev.toAccountId) || {}).name || '') : '');
+    html += `<tr style="border-top:0.5px solid var(--border);${rowBg}">
+      <td style="padding:8px 12px;${txtCol || 'color:var(--text2);'}font-variant-numeric:tabular-nums;">${fmtDate(row.date)}</td>
+      <td style="padding:8px 0;${labelCol}${txtCol}">${ev.label}${estBadge}<div style="font-size:11px;color:var(--text3);">${subLine}</div></td>
+      <td style="padding:8px 12px;text-align:right;">${amtCell}</td>
+      <td style="padding:8px 12px;text-align:right;${txtCol}font-weight:500;">${fmt(runBal)}</td>
+    </tr>`;
+    const isLastOfDate = (idx === displayRows.length - 1) || (displayRows[idx + 1].date !== row.date);
+    if (isLastOfDate && annByDate[row.date]) {
+      for (const an of annByDate[row.date]) html += `<tr><td colspan="4" style="padding:0;">${an}</td></tr>`;
+      delete annByDate[row.date];
+    }
+  }
+  html += '</tbody></table>';
+  const leftover = Object.keys(annByDate);
+  if (leftover.length) {
+    html += '<div style="border-top:0.5px solid var(--border);">';
+    for (const dt of leftover) for (const an of annByDate[dt]) html += an;
+    html += '</div>';
+  }
+  ledgerEl.innerHTML = html;
 }
 
 // ====== 初期化 ======
