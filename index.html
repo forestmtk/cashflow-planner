@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -109,6 +109,14 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 @media(max-width:500px) { .form-row, .form-row-3 { grid-template-columns: 1fr; } }
+@media(max-width:640px) {
+  nav { height: auto; flex-wrap: wrap; padding: 0 12px; }
+  .nav-logo { margin-right: auto; height: 50px; display: flex; align-items: center; }
+  .nav-actions { height: 50px; align-items: center; margin-left: 8px; }
+  .nav-tabs { order: 3; flex-basis: 100%; width: 100%; border-top: 0.5px solid var(--border); scrollbar-width: none; }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .nav-tab { height: 46px; padding: 0 18px; font-size: 14px; }
+}
 
 /* バッジ */
 .badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 500; }
@@ -1555,6 +1563,7 @@ function loadData(event) {
     try {
       state = JSON.parse(e.target.result);
       normalizeState();
+      persist();
       renderDashboard();
       alert('データを読み込みました');
     } catch(err) { alert('ファイルの読み込みに失敗しました'); }
@@ -1821,8 +1830,30 @@ function renderPassbook() {
   ledgerEl.innerHTML = html;
 }
 
+// ====== 自動保存（LocalStorage） ======
+const LS_KEY = 'cashflow_state_v1';
+function persist() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function restore() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { const parsed = JSON.parse(raw); if (parsed && typeof parsed === 'object') state = parsed; }
+  } catch (e) {}
+}
+// 状態を変更する関数を自動保存でラップ（手動JSONはバックアップ用に併存）
+['saveAccount','deleteAccount','saveEvent','deleteEvent','importCsv','saveSettings','saveBalances'].forEach(name => {
+  const orig = window[name];
+  if (typeof orig === 'function') window[name] = function () { const r = orig.apply(this, arguments); persist(); return r; };
+});
+// タブが背面に回る／閉じる直前に確実に保存（iOS Safari のタブ破棄対策）
+document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
+window.addEventListener('pagehide', persist);
+
 // ====== 初期化 ======
+restore();
 normalizeState();
+persist();
 renderDashboard();
 </script>
 </body>
