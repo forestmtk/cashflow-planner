@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -547,8 +547,9 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
       <button class="modal-close" onclick="closeModal('csvModal')">×</button>
     </div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
-      Moneytree からエクスポートしたCSVファイルを選択してください。<br>
-      列形式：日付, 内容, カテゴリ, 金額
+      CSVを選択してください（Moneytree／銀行明細CSV）。<br>
+      列形式：日付, 内容, カテゴリ, 金額 ［, 残高］<br>
+      ※「残高」列があると、最新行の残高をこの口座の現在残高に反映できます。
     </div>
     <div class="form-group">
       <label>対象口座</label>
@@ -557,6 +558,12 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
     <div class="form-group">
       <label>CSVファイル</label>
       <input type="file" id="csvFile" accept=".csv">
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer;">
+        <input type="checkbox" id="csvSetBalance" checked style="width:auto;">
+        最新残高をこの口座の現在残高に反映する
+      </label>
     </div>
     <div id="csvPreview" style="margin-top:8px;font-size:12px;color:var(--text3);"></div>
     <div class="modal-footer">
@@ -1280,26 +1287,51 @@ function importCsv() {
   const file = document.getElementById('csvFile').files[0];
   const accId = document.getElementById('csvAccount').value;
   if (!file) { alert('CSVファイルを選択してください'); return; }
+  const setBalEl = document.getElementById('csvSetBalance');
+  const wantSetBal = setBalEl ? setBalEl.checked : false;
   const reader = new FileReader();
   reader.onload = e => {
     const lines = e.target.result.split('\n').filter(l => l.trim());
     let imported = 0;
+    let maxDate = null, curBal = null; // 最新日付の行の残高＝現在残高（CSVは新しい順を想定）
     for (const line of lines) {
       const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g,''));
       if (cols.length < 4 || !cols[0].match(/\d{4}/)) continue;
       const date = cols[0].replace(/\//g,'-').slice(0,10);
       const label = cols[1] || '明細';
-      const amount = Math.abs(parseFloat(cols[3].replace(/[^\d.-]/g,'')));
-      const isNeg = parseFloat(cols[3].replace(/[^\d.-]/g,'')) < 0;
-      if (isNaN(amount) || amount === 0) continue;
-      state.events.push({ id: uid(), date, label, amount, type: isNeg ? 'expense' : 'income', accountId: accId || null, repeat: 'none', confirmed: 'confirmed' });
+      const raw = parseFloat(cols[3].replace(/[^\d.-]/g,''));
+      if (isNaN(raw) || raw === 0) continue;
+      state.events.push({ id: uid(), date, label, amount: Math.abs(raw), type: raw < 0 ? 'expense' : 'income', accountId: accId || null, repeat: 'none', confirmed: 'confirmed' });
       imported++;
+      // 残高列：5列目を優先、無ければ3列目が数値なら採用
+      const balSrc = (cols[4] !== undefined && cols[4] !== '') ? cols[4] : (cols[2] !== undefined ? cols[2] : '');
+      const balNum = parseFloat(String(balSrc).replace(/[^\d.-]/g,''));
+      if (!isNaN(balNum) && (maxDate === null || date > maxDate)) { maxDate = date; curBal = balNum; }
     }
-    document.getElementById('csvPreview').textContent = `${imported}件を取り込みました`;
+
+    let msg = `${imported}件を取り込みました`;
+    if (wantSetBal && accId && curBal !== null && maxDate) {
+      const acc = state.accounts.find(a => a.id === accId);
+      if (acc) {
+        const old = daysBetween(maxDate, today()); // 正＝過去, 負＝未来日付
+        let doSet = (old >= 0 && old <= 7);
+        if (!doSet) doSet = confirm(`最新明細は ${maxDate} です。これを「${acc.name}」の現在残高 ${fmt(curBal)} として設定しますか？\n（古い明細だと現在残高がずれることがあります）`);
+        if (doSet) { acc.balance = curBal; acc.balanceUpdatedAt = maxDate; msg += `\n現在残高を ${fmt(curBal)} に更新しました（${maxDate}時点）`; }
+        else msg += `\n現在残高は変更していません`;
+      }
+    } else if (wantSetBal && accId && curBal === null) {
+      msg += `\n（残高列が無いため現在残高は更新していません）`;
+    }
+
+    const prev = document.getElementById('csvPreview');
+    if (prev) prev.textContent = msg;
+    persist();
     renderEvents();
+    renderDashboard();
+    closeModal('csvModal');
+    alert(msg);
   };
   reader.readAsText(file, 'UTF-8');
-  closeModal('csvModal');
 }
 
 // ====== シミュレーター ======
