@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -70,6 +70,8 @@ nav { background: var(--surface); border-bottom: 0.5px solid var(--border); padd
 /* ページ */
 .page { display: none; padding: 20px 16px; max-width: 900px; margin: 0 auto; }
 .page.active { display: block; }
+.tab-hint { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; margin-bottom: 14px; background: var(--surface2); border-radius: var(--radius-sm); font-size: 12px; line-height: 1.55; color: var(--text2); }
+.tab-hint .ti { flex: none; }
 
 /* カード */
 .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
@@ -229,6 +231,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 
 <!-- ダッシュボード -->
 <div id="page-dashboard" class="page active">
+  <div class="tab-hint"><span class="ti">🏠</span><span>今の全体像をひと目で確認する場所。残高・不足アラート・推移グラフをまとめて表示します。流れを詳しく追うなら〈通帳〉、入力は〈予定〉へ。</span></div>
   <div class="dash-header">
     <div class="dash-updated" id="dashUpdated"></div>
     <button class="btn btn-primary btn-sm" onclick="openBalanceModal()">💴 残高を更新</button>
@@ -257,6 +260,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 
 <!-- 口座・カード管理 -->
 <div id="page-accounts" class="page">
+  <div class="tab-hint"><span class="ti">🏦</span><span>すべての起点。口座・カードを登録し、現在残高を最新にします。残高がズレたら、まずここを更新してください。</span></div>
   <div class="section-header">
     <div class="section-title">口座・カード管理</div>
     <div style="display:flex;gap:8px;">
@@ -274,6 +278,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 
 <!-- 予定管理 -->
 <div id="page-events" class="page">
+  <div class="tab-hint"><span class="ti">📝</span><span>お金の予定と実績を入力する中心。手入力か📄CSV取込で追加すると、その内容が他の全タブに反映されます。</span></div>
   <div class="section-header">
     <div class="section-title">予定イベント</div>
     <div style="display:flex;gap:8px;">
@@ -291,6 +296,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 
 <!-- カレンダー -->
 <div id="page-calendar" class="page">
+  <div class="tab-hint"><span class="ti">📅</span><span>予定を月単位で俯瞰する場所。日付をタップすると、その日時点の残高と予定が見られます。</span></div>
   <div class="cal-header">
     <button class="btn btn-sm" onclick="calShift(-1)">‹ 前月</button>
     <div class="cal-title" id="calTitle"></div>
@@ -319,6 +325,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 
 <!-- 通帳（資金の流れ） -->
 <div id="page-passbook" class="page">
+  <div class="tab-hint"><span class="ti">📖</span><span>お金の“流れ”を時系列で見るメイン画面。過去の実績＋未来の予測を、台帳とグラフで表示します。俯瞰だけなら〈ダッシュボード〉へ。</span></div>
   <div class="section-header">
     <div class="section-title">通帳（資金の流れ）</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -354,6 +361,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 
 <!-- シミュレーター -->
 <div id="page-simulator" class="page">
+  <div class="tab-hint"><span class="ti">🧮</span><span>“もし”を試す場所。口座移動や特定日の不足を試算するだけで、データは保存されません。確定した予定は〈予定〉に登録を。</span></div>
   <div class="section-title" style="margin-bottom:14px;">移動シミュレーター</div>
   <div class="card">
     <div class="card-title">口座間移動を試算</div>
@@ -405,6 +413,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 
 <!-- 不足予測レポート -->
 <div id="page-report" class="page">
+  <div class="tab-hint"><span class="ti">⚠️</span><span>危険日の総まとめ。口座別に、残高不足・低残高になる日を網羅して洗い出します。特定日だけ試すなら〈シミュレーター〉へ。</span></div>
   <div class="section-header">
     <div class="section-title">不足予測レポート</div>
     <select id="reportRange" onchange="renderReport()" style="width:auto;font-size:12px;padding:4px 8px;">
