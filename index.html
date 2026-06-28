@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -283,6 +283,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
     <div class="section-title">予定イベント</div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-sm" onclick="openCsvModal()">📄 CSV取込</button>
+      <button class="btn btn-sm" onclick="openCreditCsvModal()">💳 クレカ明細</button>
       <button class="btn btn-primary btn-sm" onclick="openEventModal()">＋ 追加</button>
     </div>
   </div>
@@ -582,6 +583,43 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
   </div>
 </div>
 
+<!-- クレカ明細CSV照合モーダル -->
+<div class="modal-overlay" id="creditCsvModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">クレカ明細CSV 照合</div>
+      <button class="modal-close" onclick="closeModal('creditCsvModal')">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+      カード会社のCSV（現在<b>JCB形式</b>に対応）を取り込み、登録済みの「クレカ利用」と突き合わせます。<br>
+      足りない利用は追加、金額が違う利用は確認のうえ修正。引落予定はCSVの<b>請求総額・支払日</b>で作成します。<br>
+      <b>「適用」を押すまで一切変更しません。</b>
+    </div>
+    <div class="form-group">
+      <label>対象カード</label>
+      <select id="ccCard"></select>
+    </div>
+    <div class="form-group">
+      <label>CSVファイル</label>
+      <input type="file" id="ccFile" accept=".csv">
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer;">
+        <input type="checkbox" id="ccMakePayment" checked style="width:auto;">
+        CSVの支払日・請求総額で「確定の引落予定」を作成/更新する
+      </label>
+    </div>
+    <div style="margin-bottom:8px;">
+      <button class="btn btn-primary btn-sm" onclick="runCreditMatch()">照合する</button>
+    </div>
+    <div id="ccReview"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('creditCsvModal')">キャンセル</button>
+      <button class="btn btn-primary" id="ccApplyBtn" onclick="applyCreditCsv()" style="display:none;">適用</button>
+    </div>
+  </div>
+</div>
+
 <!-- 設定モーダル -->
 <div class="modal-overlay" id="settingsModal">
   <div class="modal">
@@ -720,6 +758,8 @@ function computePayDate(dateStr, closeDay, payDay) {
 // 指定範囲に支払日が入る引き落とし予定を、カードの利用イベントから算出
 function deriveCreditPayments(rangeStart, rangeEnd) {
   const out = [];
+  // CSV取込で確定済みの月（カードID×年月）は予測を生成しない（確定引落との二重計上を防ぐ）
+  const coveredMonths = new Set(state.events.filter(e => e.type === 'credit_payment' && e._cardId).map(e => e._cardId + '|' + e.date.slice(0,7)));
   const cards = state.accounts.filter(a => a.type === 'credit' && a.autoBill !== false && a.debitAccountId && a.closeDay && a.payDay);
   if (cards.length === 0) return out;
   const lookback = addDays(rangeStart, -75); // 直近サイクル分の過去利用も拾う
@@ -733,6 +773,7 @@ function deriveCreditPayments(rangeStart, rangeEnd) {
       byPay[pd] = (byPay[pd] || 0) + ch.amount;
     }
     for (const pd in byPay) {
+      if (coveredMonths.has(card.id + '|' + pd.slice(0,7))) continue;
       out.push({ id: `auto_${card.id}_${pd}`, date: pd, label: `${card.name} 引落（自動）`, amount: byPay[pd], type: 'credit_payment', accountId: card.debitAccountId, repeat: 'none', confirmed: 'estimated', _auto: true });
     }
   }
@@ -750,6 +791,188 @@ function nextCardPayment(card) {
   const ps = deriveCreditPayments(t, addDays(t, 120)).filter(p => p.id.startsWith('auto_' + card.id + '_'));
   ps.sort((a,b) => a.date.localeCompare(b.date));
   return ps[0] || null;
+}
+
+// ====== クレカ明細CSV 照合（現状 JCB 形式に対応） ======
+let ccState = null; // {card, parsed, plan}
+
+// クォート対応CSVパーサ（カンマ入り金額・CRLF・""エスケープ・BOMに対応）
+function parseCsvText(text) {
+  text = String(text).replace(/^\uFEFF/, '');
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i+1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else {
+      if (c === '"') q = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\r') { /* skip */ }
+      else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else cur += c;
+    }
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+// 全角英数→半角、全角スペース除去
+function jcbHalf(s) { return (s || '').replace(/\u3000/g, ' ').replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).trim(); }
+function jcbYen(s) { const n = parseInt(String(s).replace(/[^\d-]/g, ''), 10); return isNaN(n) ? null : n; }
+
+function parseJcbCsv(text) {
+  const rows = parseCsvText(text);
+  let payDate = null, payTotal = null;
+  for (const r of rows) {
+    for (let i = 0; i < r.length; i++) {
+      const cell = (r[i] || '').trim();
+      if (cell === '今回のお支払日') { const v = (r[i+1] || r[r.length-1] || '').trim(); payDate = v.replace(/\//g, '-').slice(0,10); }
+      if (cell.includes('お支払金額合計')) payTotal = jcbYen(r[r.length-1]);
+    }
+  }
+  const detail = [];
+  for (const r of rows) {
+    if (r.length >= 12) {
+      const d = (r[2] || '').trim();
+      if (/^\d{4}\/\d{2}\/\d{2}$/.test(d)) {
+        detail.push({ date: d.replace(/\//g, '-'), label: jcbHalf(r[3]), amount: jcbYen(r[4]), overseas: (r[9] || '').trim() === '海外' });
+      }
+    }
+  }
+  return { payDate, payTotal, rows: detail };
+}
+
+function ccDiffDays(a, b) { return Math.abs((Date.parse(a) - Date.parse(b)) / 86400000); }
+
+// CSV明細と既存card_chargeを突き合わせる
+function matchCardCharges(csvRows, existing) {
+  const pool = existing.map(e => ({ e, used: false }));
+  const add = [], fix = []; let matched = 0; const TOL = 3;
+  // pass1: 金額完全一致 ＋ 利用日±3日 → 一致（消し込み）
+  const pending = [];
+  for (const row of csvRows) {
+    const hit = pool.find(p => !p.used && p.e.amount === row.amount && ccDiffDays(p.e.date, row.date) <= TOL);
+    if (hit) { hit.used = true; matched++; } else pending.push(row);
+  }
+  // pass2: 日付±3日 ＋ 金額差25%以内のペアを、金額差の小さい順に貪欲割当 → 金額相違（修正候補）
+  const pairs = [];
+  for (let ri = 0; ri < pending.length; ri++) {
+    const row = pending[ri];
+    for (const p of pool) {
+      if (p.used) continue;
+      if (ccDiffDays(p.e.date, row.date) > TOL) continue;
+      const big = Math.max(Math.abs(p.e.amount), Math.abs(row.amount)) || 1;
+      if (Math.abs(p.e.amount - row.amount) / big <= 0.25) pairs.push({ ri, p, ad: Math.abs(p.e.amount - row.amount) });
+    }
+  }
+  pairs.sort((x, y) => x.ad - y.ad);
+  const rowUsed = new Set();
+  for (const pr of pairs) {
+    if (pr.p.used || rowUsed.has(pr.ri)) continue;
+    pr.p.used = true; rowUsed.add(pr.ri);
+    const row = pending[pr.ri];
+    fix.push({ evId: pr.p.e.id, oldAmount: pr.p.e.amount, newAmount: row.amount, exLabel: pr.p.e.label, csvLabel: row.label, date: row.date });
+  }
+  // pass3: 残ったCSV行 → 追加候補
+  for (let ri = 0; ri < pending.length; ri++) if (!rowUsed.has(ri)) add.push(pending[ri]);
+  // 残った既存 → CSVになし（自動削除しない）
+  const missing = pool.filter(p => !p.used).map(p => p.e);
+  return { matched, add, fix, missing };
+}
+
+function openCreditCsvModal() {
+  const cards = state.accounts.filter(a => a.type === 'credit');
+  if (cards.length === 0) { alert('先に「口座・カード」でクレジットカードを登録してください'); return; }
+  document.getElementById('ccCard').innerHTML = cards.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('ccFile').value = '';
+  document.getElementById('ccReview').innerHTML = '';
+  document.getElementById('ccApplyBtn').style.display = 'none';
+  ccState = null;
+  document.getElementById('creditCsvModal').classList.add('open');
+}
+
+function runCreditMatch() {
+  const cardId = document.getElementById('ccCard').value;
+  const card = state.accounts.find(a => a.id === cardId);
+  const file = document.getElementById('ccFile').files[0];
+  if (!card) { alert('カードを選択してください'); return; }
+  if (!file) { alert('CSVファイルを選択してください'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    let parsed;
+    try { parsed = parseJcbCsv(e.target.result); }
+    catch (err) { document.getElementById('ccReview').innerHTML = '<div style="color:var(--danger);font-size:13px;">CSVの解析に失敗しました。JCB形式のCSVか確認してください。</div>'; return; }
+    if (!parsed.rows.length) { document.getElementById('ccReview').innerHTML = '<div style="color:var(--danger);font-size:13px;">明細行が見つかりませんでした。JCB形式のCSVか確認してください。</div>'; return; }
+    const existing = state.events.filter(ev => ev.type === 'card_charge' && ev.accountId === card.id).map(ev => ({ id: ev.id, date: ev.date, amount: ev.amount, label: ev.label }));
+    const plan = matchCardCharges(parsed.rows, existing);
+    ccState = { card, parsed, plan };
+    renderCcReview();
+    document.getElementById('ccApplyBtn').style.display = '';
+  };
+  reader.readAsText(file); // 既定UTF-8（BOMはパーサ側で除去）
+}
+
+function renderCcReview() {
+  const { card, parsed, plan } = ccState;
+  const y = n => '¥' + Number(n).toLocaleString();
+  const debit = card.debitAccountId ? state.accounts.find(a => a.id === card.debitAccountId) : null;
+  const usedSum = parsed.rows.reduce((s, r) => s + (r.amount || 0), 0);
+  let h = '';
+  h += `<div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;line-height:1.7;margin-bottom:10px;">
+    <div>支払日：<b>${parsed.payDate || '—'}</b>／請求総額：<b>${parsed.payTotal != null ? y(parsed.payTotal) : '—'}</b></div>
+    <div>明細 ${parsed.rows.length}件（利用合計 ${y(usedSum)}）${parsed.payTotal != null && parsed.payTotal !== usedSum ? `<span style="color:var(--text3)"> ／ 差 ${y(parsed.payTotal - usedSum)}（海外事務手数料等）</span>` : ''}</div>
+    <div style="color:var(--text3)">一致 ${plan.matched}／追加候補 ${plan.add.length}／金額相違 ${plan.fix.length}／CSVになし ${plan.missing.length}</div>
+  </div>`;
+  if (document.getElementById('ccMakePayment').checked) {
+    if (debit && parsed.payDate && parsed.payTotal != null) h += `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">→「${debit.name}」に <b>${parsed.payDate}</b> の確定引落 <b>${y(parsed.payTotal)}</b> を作成/更新します（請求総額を採用）。</div>`;
+    else if (!debit) h += `<div style="font-size:12px;color:var(--danger);margin-bottom:10px;">※ このカードに引き落とし口座が未設定のため、引落予定は作れません（口座・カードで設定）。利用の同期のみ行います。</div>`;
+  }
+  if (plan.add.length) {
+    h += `<div style="font-weight:500;font-size:13px;margin:6px 0;">追加候補（入れ忘れ）${plan.add.length}件</div>`;
+    h += plan.add.map((r, i) => `<label style="display:flex;gap:8px;align-items:center;font-size:12px;padding:4px 0;cursor:pointer;">
+      <input type="checkbox" class="cc-add" data-i="${i}" checked style="width:auto;">
+      <span style="flex:1;">${r.date}　${r.label}${r.overseas ? ' <span style="color:var(--text3)">[海外]</span>' : ''}</span>
+      <span class="amount-negative">${y(r.amount)}</span></label>`).join('');
+  }
+  if (plan.fix.length) {
+    h += `<div style="font-weight:500;font-size:13px;margin:10px 0 6px;">金額相違（確認して修正）${plan.fix.length}件</div>`;
+    h += plan.fix.map((f, i) => `<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;cursor:pointer;">
+      <input type="checkbox" class="cc-fix" data-i="${i}" style="width:auto;margin-top:2px;">
+      <span style="flex:1;">${f.date}　既存「${f.exLabel}」⇄ CSV「${f.csvLabel}」<br><span style="color:var(--text3)">${y(f.oldAmount)} → ${y(f.newAmount)}</span></span></label>`).join('');
+    h += `<div style="font-size:11px;color:var(--text3);margin-top:2px;">※ ラベルが食い違う場合は別取引かもしれません。違うと思ったらチェックを外してください。</div>`;
+  }
+  if (plan.missing.length) {
+    h += `<div style="font-weight:500;font-size:13px;margin:10px 0 6px;">CSVに無い既存の利用 ${plan.missing.length}件（自動削除しません）</div>`;
+    h += plan.missing.map(e => `<div style="font-size:12px;color:var(--text3);padding:3px 0;">${e.date}　${e.label}　${y(e.amount)}</div>`).join('');
+  }
+  if (!plan.add.length && !plan.fix.length) h += `<div style="font-size:13px;color:var(--accent);margin-top:6px;">利用の追加・修正はありません。</div>`;
+  document.getElementById('ccReview').innerHTML = h;
+}
+
+function applyCreditCsv() {
+  if (!ccState) return;
+  const { card, parsed, plan } = ccState;
+  let added = 0, fixed = 0;
+  document.querySelectorAll('#ccReview .cc-add:checked').forEach(cb => {
+    const r = plan.add[+cb.dataset.i];
+    state.events.push({ id: uid(), date: r.date, label: r.label, amount: r.amount, type: 'card_charge', accountId: card.id, repeat: 'none', confirmed: 'confirmed' });
+    added++;
+  });
+  document.querySelectorAll('#ccReview .cc-fix:checked').forEach(cb => {
+    const f = plan.fix[+cb.dataset.i];
+    const ev = state.events.find(x => x.id === f.evId);
+    if (ev) { ev.amount = f.newAmount; fixed++; }
+  });
+  let payMsg = '';
+  if (document.getElementById('ccMakePayment').checked && card.debitAccountId && parsed.payDate && parsed.payTotal != null) {
+    state.events = state.events.filter(ev => !(ev._cardId === card.id && ev._csvPay === parsed.payDate));
+    state.events.push({ id: uid(), date: parsed.payDate, label: `${card.name} 引落`, amount: parsed.payTotal, type: 'credit_payment', accountId: card.debitAccountId, repeat: 'none', confirmed: 'confirmed', _cardId: card.id, _csvPay: parsed.payDate });
+    payMsg = `\n引落予定（${parsed.payDate}・¥${parsed.payTotal.toLocaleString()}）を設定しました`;
+  }
+  persist();
+  renderDashboard(); renderAccounts(); renderEvents();
+  closeModal('creditCsvModal');
+  alert(`利用を${added}件追加、${fixed}件修正しました${payMsg}`);
 }
 
 function calcBalances(days) {
@@ -1024,21 +1247,23 @@ function renderEvents() {
     tbody.innerHTML = '<tr><td colspan="6" class="empty">予定を追加してください</td></tr>';
     return;
   }
-  const sorted = [...state.events].sort((a,b) => a.date.localeCompare(b.date));
+  const derivedAuto = deriveCreditPayments(today(), addDays(today(), 120));
+  const sorted = [...state.events, ...derivedAuto].sort((a,b) => a.date.localeCompare(b.date));
   tbody.innerHTML = sorted.map(ev => {
     const acc = state.accounts.find(a => a.id === ev.accountId);
     const typeLabel = {income:'収入',expense:'支出',transfer:'移動',credit_payment:'引落',card_charge:'利用'}[ev.type] || ev.type;
     const badgeClass = {income:'badge-income',expense:'badge-expense',transfer:'badge-transfer',credit_payment:'badge-credit',card_charge:'badge-charge'}[ev.type] || '';
     const repeatLabel = {none:'',monthly:'毎月',yearly:'毎年'}[ev.repeat||'none'];
-    return `<tr>
-      <td>${fmtDate(ev.date)}${ev.repeat !== 'none' ? ` <span style="font-size:10px;color:var(--text3)">${repeatLabel}</span>` : ''}</td>
-      <td>${ev.label}${ev.confirmed === 'estimated' ? ' <span style="font-size:10px;color:var(--text3)">(予測)</span>' : ''}</td>
+    const isAuto = !!ev._auto;
+    const tag = isAuto ? ' <span style="font-size:10px;color:var(--text3)">(自動引落・予測)</span>' : (ev.confirmed === 'estimated' ? ' <span style="font-size:10px;color:var(--text3)">(予測)</span>' : '');
+    return `<tr${isAuto ? ' style="opacity:.7"' : ''}>
+      <td>${fmtDate(ev.date)}${ev.repeat && ev.repeat !== 'none' ? ` <span style="font-size:10px;color:var(--text3)">${repeatLabel}</span>` : ''}</td>
+      <td>${ev.label}${tag}</td>
       <td style="font-size:12px;">${acc ? acc.name : '-'}</td>
       <td><span class="badge ${badgeClass}">${typeLabel}</span></td>
       <td class="${ev.type === 'income' ? 'amount-positive' : ev.type !== 'transfer' ? 'amount-negative' : ''}">${fmt(ev.amount)}</td>
       <td style="white-space:nowrap;">
-        <button class="btn btn-sm" onclick="openEventModal('${ev.id}')">編集</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteEvent('${ev.id}')">削除</button>
+        ${isAuto ? '<span style="font-size:11px;color:var(--text3);">自動</span>' : `<button class="btn btn-sm" onclick="openEventModal('${ev.id}')">編集</button> <button class="btn btn-sm btn-danger" onclick="deleteEvent('${ev.id}')">削除</button>`}
       </td>
     </tr>`;
   }).join('');
