@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -287,7 +287,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
       <button class="btn btn-primary btn-sm" onclick="openEventModal()">＋ 追加</button>
     </div>
   </div>
-  <div class="card" style="padding:0;overflow:hidden;">
+  <div class="card" style="padding:0;overflow-x:auto;">
     <table>
       <thead><tr><th>日付</th><th>内容</th><th>口座</th><th>種別</th><th>金額</th><th style="width:60px;"></th></tr></thead>
       <tbody id="eventTable"><tr><td colspan="6" class="empty">予定を追加してください</td></tr></tbody>
@@ -543,6 +543,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
       </select>
     </div>
     <div class="modal-footer">
+      <button class="btn btn-danger" id="evDeleteBtn" onclick="deleteFromModal()" style="margin-right:auto;display:none;">削除</button>
       <button class="btn" onclick="closeModal('eventModal')">キャンセル</button>
       <button class="btn btn-primary" onclick="saveEvent()">保存</button>
     </div>
@@ -1256,14 +1257,14 @@ function renderEvents() {
     const repeatLabel = {none:'',monthly:'毎月',yearly:'毎年'}[ev.repeat||'none'];
     const isAuto = !!ev._auto;
     const tag = isAuto ? ' <span style="font-size:10px;color:var(--text3)">(自動引落・予測)</span>' : (ev.confirmed === 'estimated' ? ' <span style="font-size:10px;color:var(--text3)">(予測)</span>' : '');
-    return `<tr${isAuto ? ' style="opacity:.7"' : ''}>
+    return `<tr${isAuto ? ' style="opacity:.7"' : ` onclick="openEventModal('${ev.id}')" style="cursor:pointer;"`}>
       <td>${fmtDate(ev.date)}${ev.repeat && ev.repeat !== 'none' ? ` <span style="font-size:10px;color:var(--text3)">${repeatLabel}</span>` : ''}</td>
       <td>${ev.label}${tag}</td>
       <td style="font-size:12px;">${acc ? acc.name : '-'}</td>
       <td><span class="badge ${badgeClass}">${typeLabel}</span></td>
       <td class="${ev.type === 'income' ? 'amount-positive' : ev.type !== 'transfer' ? 'amount-negative' : ''}">${fmt(ev.amount)}</td>
       <td style="white-space:nowrap;">
-        ${isAuto ? '<span style="font-size:11px;color:var(--text3);">自動</span>' : `<button class="btn btn-sm" onclick="openEventModal('${ev.id}')">編集</button> <button class="btn btn-sm btn-danger" onclick="deleteEvent('${ev.id}')">削除</button>`}
+        ${isAuto ? '<span style="font-size:11px;color:var(--text3);">自動</span>' : `<button class="btn btn-sm" onclick="event.stopPropagation();openEventModal('${ev.id}')">編集</button> <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteEvent('${ev.id}')">削除</button>`}
       </td>
     </tr>`;
   }).join('');
@@ -1274,6 +1275,7 @@ function openEventModal(id) {
   const accOptions = state.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
   document.getElementById('evToAccount').innerHTML = '<option value="">選択...</option>' + accOptions;
   document.getElementById('eventModalTitle').textContent = id ? '予定を編集' : '予定を追加';
+  document.getElementById('evDeleteBtn').style.display = id ? '' : 'none';
 
   if (id) {
     const ev = state.events.find(e => e.id === id);
@@ -1340,6 +1342,16 @@ function deleteEvent(id) {
   if (!confirm('この予定を削除しますか？')) return;
   state.events = state.events.filter(e => e.id !== id);
   renderEvents();
+}
+
+// 編集モーダル内からの削除（スマホで行右端のボタンが見切れても削除できるように）
+function deleteFromModal() {
+  if (!editEventId) return;
+  if (!confirm('この予定を削除しますか？')) return;
+  state.events = state.events.filter(e => e.id !== editEventId);
+  persist();
+  closeModal('eventModal');
+  renderEvents(); renderDashboard(); renderAccounts();
 }
 
 // ====== カレンダー ======
