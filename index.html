@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.15: ダッシュボード先頭に「おかえりパネル（今日やること）」を常設。久しぶりに開いたとき何をすればよいか迷わないよう、①残高更新②クレカCSV取込③危険日確認の3ステップを常時表示。①は最終残高更新からの経過日数（balanceUpdatedAt）で鮮度チップを自動表示（本日/○日前/○日前・要更新/未更新）、③はgetAlertsから危険・注意件数を自動表示。各ステップのタップで担当画面（残高モーダル/クレカCSVモーダル/レポート）へ遷移。表示のみの追加で計算・データ構造は不変。/ v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.16: 予定タブでクレカ「利用」明細(card_charge)を既定で畳む。CSV取込で利用行が大量に増えて予定が埋まる問題に対応。先頭に「💳 カード利用明細 N件 ▼タップで展開」バーを表示し、タップで表示/非表示を切替。利用は元々ダッシュボード直近イベント・通帳台帳から除外済み（計算材料扱い）で、予定タブのみ埋まっていたためここで畳む。収入/支出/引落/移動などその他の予定は従来どおり常時表示。表示の絞り込みのみで計算・データ構造は不変。/ v1.15: ダッシュボード先頭に「おかえりパネル（今日やること）」を常設。久しぶりに開いたとき何をすればよいか迷わないよう、①残高更新②クレカCSV取込③危険日確認の3ステップを常時表示。①は最終残高更新からの経過日数（balanceUpdatedAt）で鮮度チップを自動表示（本日/○日前/○日前・要更新/未更新）、③はgetAlertsから危険・注意件数を自動表示。各ステップのタップで担当画面（残高モーダル/クレカCSVモーダル/レポート）へ遷移。表示のみの追加で計算・データ構造は不変。/ v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -89,6 +89,10 @@ nav { background: var(--surface); border-bottom: 0.5px solid var(--border); padd
 .wp-chip.neutral { background: var(--surface); color: var(--text2); border: 0.5px solid var(--border2); }
 .wp-chip.warn { background: var(--warning-bg); color: var(--warning); }
 .wp-chip.danger { background: var(--danger-bg); color: var(--danger); }
+/* v1.16 予定タブ「利用」明細の畳みバー */
+.charge-bar td { background: var(--surface2); color: var(--text2); font-size: 12.5px; font-weight: 600; text-align: center; cursor: pointer; padding: 9px 8px; }
+.charge-bar:active td { background: var(--accent-bg); }
+.charge-bar .cb-hint { color: var(--text3); font-weight: 500; }
 
 /* カード */
 .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
@@ -1315,6 +1319,9 @@ function deleteAccount(id) {
 }
 
 // ====== 予定管理 ======
+let showCardCharges = false; // v1.16: 予定タブで「利用」明細を畳む
+function toggleCardCharges() { showCardCharges = !showCardCharges; renderEvents(); }
+
 function renderEvents() {
   const tbody = document.getElementById('eventTable');
   if (state.events.length === 0) {
@@ -1323,7 +1330,15 @@ function renderEvents() {
   }
   const derivedAuto = deriveCreditPayments(today(), addDays(today(), 120));
   const sorted = [...state.events, ...derivedAuto].sort((a,b) => a.date.localeCompare(b.date));
-  tbody.innerHTML = sorted.map(ev => {
+
+  // v1.16: クレカ「利用」(card_charge) は既定で畳み、タップで展開
+  const chargeCount = sorted.filter(e => e.type === 'card_charge').length;
+  const visible = showCardCharges ? sorted : sorted.filter(e => e.type !== 'card_charge');
+  const chargeBar = chargeCount > 0
+    ? `<tr class="charge-bar" onclick="toggleCardCharges()"><td colspan="6">💳 カード利用明細 ${chargeCount}件　<span class="cb-hint">${showCardCharges ? '▲ 畳む' : '▼ タップで展開'}</span></td></tr>`
+    : '';
+
+  tbody.innerHTML = chargeBar + visible.map(ev => {
     const acc = state.accounts.find(a => a.id === ev.accountId);
     const typeLabel = {income:'収入',expense:'支出',transfer:'移動',credit_payment:'引落',card_charge:'利用'}[ev.type] || ev.type;
     const badgeClass = {income:'badge-income',expense:'badge-expense',transfer:'badge-transfer',credit_payment:'badge-credit',card_charge:'badge-charge'}[ev.type] || '';
