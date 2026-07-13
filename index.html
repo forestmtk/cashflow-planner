@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.15: ダッシュボード先頭に「おかえりパネル（今日やること）」を常設。久しぶりに開いたとき何をすればよいか迷わないよう、①残高更新②クレカCSV取込③危険日確認の3ステップを常時表示。①は最終残高更新からの経過日数（balanceUpdatedAt）で鮮度チップを自動表示（本日/○日前/○日前・要更新/未更新）、③はgetAlertsから危険・注意件数を自動表示。各ステップのタップで担当画面（残高モーダル/クレカCSVモーダル/レポート）へ遷移。表示のみの追加で計算・データ構造は不変。/ v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -72,6 +72,23 @@ nav { background: var(--surface); border-bottom: 0.5px solid var(--border); padd
 .page.active { display: block; }
 .tab-hint { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; margin-bottom: 14px; background: var(--surface2); border-radius: var(--radius-sm); font-size: 12px; line-height: 1.55; color: var(--text2); }
 .tab-hint .ti { flex: none; }
+/* v1.15 おかえりパネル */
+.wp { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+.wp-head { margin-bottom: 10px; }
+.wp-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.wp-sub { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin-top: 3px; }
+.wp-steps { display: flex; flex-direction: column; gap: 8px; }
+.wp-step { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; cursor: pointer; color: var(--text); font: inherit; }
+.wp-step:active { background: var(--accent-bg); }
+.wp-num { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.wp-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.wp-name { font-size: 13.5px; font-weight: 600; }
+.wp-note { font-size: 11px; color: var(--text3); margin-top: 1px; line-height: 1.4; }
+.wp-chip { flex: none; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.wp-chip.ok { background: var(--accent-bg); color: var(--accent-dark); }
+.wp-chip.neutral { background: var(--surface); color: var(--text2); border: 0.5px solid var(--border2); }
+.wp-chip.warn { background: var(--warning-bg); color: var(--warning); }
+.wp-chip.danger { background: var(--danger-bg); color: var(--danger); }
 
 /* カード */
 .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
@@ -232,6 +249,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 <!-- ダッシュボード -->
 <div id="page-dashboard" class="page active">
   <div class="tab-hint"><span class="ti">🏠</span><span>今の全体像をひと目で確認する場所。残高・不足アラート・推移グラフをまとめて表示します。流れを詳しく追うなら〈通帳〉、入力は〈予定〉へ。</span></div>
+  <div id="welcomePanel" class="wp"></div>
   <div class="dash-header">
     <div class="dash-updated" id="dashUpdated"></div>
     <button class="btn btn-primary btn-sm" onclick="openBalanceModal()">💴 残高を更新</button>
@@ -1043,6 +1061,58 @@ function getAlerts(days) {
   return alerts.filter(a => { const k = a.date + a.message; if(seen.has(k)) return false; seen.add(k); return true; }).slice(0, 5);
 }
 
+// ====== おかえりパネル（今日やること）v1.15 ======
+function renderWelcomePanel(lastUpd, alerts) {
+  const el = document.getElementById('welcomePanel');
+  if (!el) return;
+  const age = lastUpd ? daysBetween(lastUpd, today()) : null;
+
+  // ステップ1：残高更新の鮮度
+  let chip1, cls1;
+  if (!lastUpd) { chip1 = '未更新'; cls1 = 'danger'; }
+  else if (age === 0) { chip1 = '✓ 本日'; cls1 = 'ok'; }
+  else if (age <= 7) { chip1 = age + '日前'; cls1 = 'neutral'; }
+  else { chip1 = age + '日前・要更新'; cls1 = 'warn'; }
+
+  // ステップ3：危険日
+  const dangerN = alerts.filter(a => a.type === 'danger').length;
+  const warnN = alerts.filter(a => a.type === 'warning').length;
+  let chip3, cls3;
+  if (dangerN > 0) { chip3 = '⚠️ 危険 ' + dangerN + '件'; cls3 = 'danger'; }
+  else if (warnN > 0) { chip3 = '! 注意 ' + warnN + '件'; cls3 = 'warn'; }
+  else { chip3 = '✓ なし'; cls3 = 'ok'; }
+
+  // 見出しの一言（状態で出し分け）
+  let sub;
+  if (!lastUpd) sub = 'まずは〈口座・カード〉を登録して残高を入力しましょう。慣れれば週1回、残高更新だけでOKです。';
+  else if (age > 7) sub = `残高更新から${age}日。少し古いので、まず①残高を更新しましょう（週1回でOK）。`;
+  else if (age === 0) sub = '今日のデータで最新です。あとは③危険日を軽く確認すれば大丈夫。';
+  else sub = `残高更新から${age}日。まだ新しいので、③危険日の確認だけでOKです。`;
+
+  el.innerHTML = `
+    <div class="wp-head">
+      <div class="wp-title">👋 おかえりなさい ― 今日やること</div>
+      <div class="wp-sub">${sub}</div>
+    </div>
+    <div class="wp-steps">
+      <button class="wp-step" onclick="openBalanceModal()">
+        <span class="wp-num">1</span>
+        <span class="wp-body"><span class="wp-name">残高を今日の値に更新</span><span class="wp-note">ここが古いと予測が全部ズレます。まずコレ。</span></span>
+        <span class="wp-chip ${cls1}">${chip1}</span>
+      </button>
+      <button class="wp-step" onclick="switchTab('events'); openCreditCsvModal();">
+        <span class="wp-num">2</span>
+        <span class="wp-body"><span class="wp-name">クレカ明細CSVを取込</span><span class="wp-note">明細が届いたときだけでOK（月1回くらい）。</span></span>
+        <span class="wp-chip neutral">任意</span>
+      </button>
+      <button class="wp-step" onclick="switchTab('report')">
+        <span class="wp-num">3</span>
+        <span class="wp-body"><span class="wp-name">危険日を確認</span><span class="wp-note">残高不足になりそうな日がないかチェック。</span></span>
+        <span class="wp-chip ${cls3}">${chip3}</span>
+      </button>
+    </div>`;
+}
+
 // ====== ダッシュボード ======
 function renderDashboard() {
   const days = parseInt(document.getElementById('chartRange').value) || 90;
@@ -1066,6 +1136,9 @@ function renderDashboard() {
   const totalBank = state.accounts.filter(a => a.type === 'bank' || a.type === 'cash').reduce((s,a) => s + (a.balance||0), 0);
   const totalCredit = state.accounts.filter(a => a.type === 'credit').reduce((s,a) => s + (a.balance||0), 0);
   const alerts = getAlerts(days);
+
+  // おかえりパネル（今日やること）
+  renderWelcomePanel(lastUpd, alerts);
   
   document.getElementById('summaryGrid').innerHTML = `
     <div class="metric"><div class="metric-label">銀行・現金 合計</div><div class="metric-value ${totalBank < 0 ? 'danger' : totalBank < 100000 ? 'warning' : 'ok'}">${fmt(totalBank)}</div></div>
