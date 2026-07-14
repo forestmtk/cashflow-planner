@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.16: 予定タブでクレカ「利用」明細(card_charge)を既定で畳む。CSV取込で利用行が大量に増えて予定が埋まる問題に対応。先頭に「💳 カード利用明細 N件 ▼タップで展開」バーを表示し、タップで表示/非表示を切替。利用は元々ダッシュボード直近イベント・通帳台帳から除外済み（計算材料扱い）で、予定タブのみ埋まっていたためここで畳む。収入/支出/引落/移動などその他の予定は従来どおり常時表示。表示の絞り込みのみで計算・データ構造は不変。/ v1.15: ダッシュボード先頭に「おかえりパネル（今日やること）」を常設。久しぶりに開いたとき何をすればよいか迷わないよう、①残高更新②クレカCSV取込③危険日確認の3ステップを常時表示。①は最終残高更新からの経過日数（balanceUpdatedAt）で鮮度チップを自動表示（本日/○日前/○日前・要更新/未更新）、③はgetAlertsから危険・注意件数を自動表示。各ステップのタップで担当画面（残高モーダル/クレカCSVモーダル/レポート）へ遷移。表示のみの追加で計算・データ構造は不変。/ v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.17: カードに「毎月の概算引落額」欄(monthlyEstimate)を追加。設定すると引落口座・支払日を使い、毎月の引落（概算）を自動で予定/カレンダー/危険日予測に生成（利用明細入力もCSVも不要）。予定タブの概算行に「確定」ボタンを設け、請求確定時にその月だけ実額へ更新（confirmed引落を作成→coveredMonthsで当月の概算をスキップ＝二重計上なし）。確定額は直近優先で次月以降の概算に自動で引き継がれる。概算額を設定したカードは利用明細ベースの自動生成(A)より優先。nextCardPaymentもest_行に対応。計算の土台(getExpandedeventsが取込)に沿うため危険日にも反映。/ v1.16: 予定タブでクレカ「利用」明細(card_charge)を既定で畳む。CSV取込で利用行が大量に増えて予定が埋まる問題に対応。先頭に「💳 カード利用明細 N件 ▼タップで展開」バーを表示し、タップで表示/非表示を切替。利用は元々ダッシュボード直近イベント・通帳台帳から除外済み（計算材料扱い）で、予定タブのみ埋まっていたためここで畳む。収入/支出/引落/移動などその他の予定は従来どおり常時表示。表示の絞り込みのみで計算・データ構造は不変。/ v1.15: ダッシュボード先頭に「おかえりパネル（今日やること）」を常設。久しぶりに開いたとき何をすればよいか迷わないよう、①残高更新②クレカCSV取込③危険日確認の3ステップを常時表示。①は最終残高更新からの経過日数（balanceUpdatedAt）で鮮度チップを自動表示（本日/○日前/○日前・要更新/未更新）、③はgetAlertsから危険・注意件数を自動表示。各ステップのタップで担当画面（残高モーダル/クレカCSVモーダル/レポート）へ遷移。表示のみの追加で計算・データ構造は不変。/ v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -496,6 +496,11 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
         </label>
         <div style="font-size:11px;color:var(--text3);line-height:1.6;">ONにすると、このカードの「クレカ利用」イベントを締め日で集計し、翌月の支払日に引き落とし予定を自動作成します（引き落とし口座・締め日・支払日の設定が必要）。</div>
       </div>
+      <div class="form-group" style="margin-bottom:6px;">
+        <label>毎月の概算引落額（利用明細を入れない場合）</label>
+        <input type="number" id="accMonthlyEst" min="0" step="1000" placeholder="例: 80000">
+        <div style="font-size:11px;color:var(--text3);line-height:1.6;">金額を入れると、引き落とし口座・支払日を使って<b>毎月の引落（概算）を自動で予定に出します</b>。明細入力もCSVも不要。請求が確定したら予定タブでその月だけ「確定」して実額に更新でき、<b>次の月からはその実額が概算として引き継がれます</b>。（この欄を使う場合は上の「利用明細から自動生成」より優先されます）</div>
+      </div>
     </div>
     <div class="form-group">
       <label>メモ</label>
@@ -781,23 +786,48 @@ function computePayDate(dateStr, closeDay, payDay) {
 // 指定範囲に支払日が入る引き落とし予定を、カードの利用イベントから算出
 function deriveCreditPayments(rangeStart, rangeEnd) {
   const out = [];
-  // CSV取込で確定済みの月（カードID×年月）は予測を生成しない（確定引落との二重計上を防ぐ）
+  // 確定済みの月（カードID×年月）は概算/予測を生成しない（確定引落との二重計上を防ぐ）
   const coveredMonths = new Set(state.events.filter(e => e.type === 'credit_payment' && e._cardId).map(e => e._cardId + '|' + e.date.slice(0,7)));
-  const cards = state.accounts.filter(a => a.type === 'credit' && a.autoBill !== false && a.debitAccountId && a.closeDay && a.payDay);
-  if (cards.length === 0) return out;
-  const lookback = addDays(rangeStart, -75); // 直近サイクル分の過去利用も拾う
-  const charges = eventsInRange(lookback, rangeEnd).filter(e => e.type === 'card_charge');
-  for (const card of cards) {
-    const byPay = {};
-    for (const ch of charges) {
-      if (ch.accountId !== card.id) continue;
-      const pd = computePayDate(ch.date, card.closeDay, card.payDay);
-      if (pd < rangeStart || pd > rangeEnd) continue;
-      byPay[pd] = (byPay[pd] || 0) + ch.amount;
+
+  // (A) 利用明細ベースの自動引落（概算額を設定していないカードのみ）
+  const usageCards = state.accounts.filter(a => a.type === 'credit' && a.autoBill !== false && a.debitAccountId && a.closeDay && a.payDay && !(a.monthlyEstimate > 0));
+  if (usageCards.length) {
+    const lookback = addDays(rangeStart, -75); // 直近サイクル分の過去利用も拾う
+    const charges = eventsInRange(lookback, rangeEnd).filter(e => e.type === 'card_charge');
+    for (const card of usageCards) {
+      const byPay = {};
+      for (const ch of charges) {
+        if (ch.accountId !== card.id) continue;
+        const pd = computePayDate(ch.date, card.closeDay, card.payDay);
+        if (pd < rangeStart || pd > rangeEnd) continue;
+        byPay[pd] = (byPay[pd] || 0) + ch.amount;
+      }
+      for (const pd in byPay) {
+        if (coveredMonths.has(card.id + '|' + pd.slice(0,7))) continue;
+        out.push({ id: `auto_${card.id}_${pd}`, date: pd, label: `${card.name} 引落（自動）`, amount: byPay[pd], type: 'credit_payment', accountId: card.debitAccountId, repeat: 'none', confirmed: 'estimated', _auto: true });
+      }
     }
-    for (const pd in byPay) {
-      if (coveredMonths.has(card.id + '|' + pd.slice(0,7))) continue;
-      out.push({ id: `auto_${card.id}_${pd}`, date: pd, label: `${card.name} 引落（自動）`, amount: byPay[pd], type: 'credit_payment', accountId: card.debitAccountId, repeat: 'none', confirmed: 'estimated', _auto: true });
+  }
+
+  // (B) 毎月の概算引落（monthlyEstimate を設定したカード）: 直近の確定額を次月へ引き継ぐ
+  const estCards = state.accounts.filter(a => a.type === 'credit' && a.debitAccountId && a.payDay && a.monthlyEstimate > 0);
+  for (const card of estCards) {
+    const confirmedPays = state.events
+      .filter(e => e.type === 'credit_payment' && e._cardId === card.id && e.confirmed === 'confirmed')
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const d = new Date(rangeStart + 'T00:00:00'); d.setDate(1);
+    let guard = 0;
+    while (guard++ < 60) {
+      const y = d.getFullYear(), m = d.getMonth() + 1;
+      const dim = new Date(y, m, 0).getDate();
+      const pd = `${y}-${pad2(m)}-${pad2(Math.min(card.payDay, dim))}`;
+      d.setMonth(d.getMonth() + 1);
+      if (pd < rangeStart) continue;
+      if (pd > rangeEnd) break;
+      if (coveredMonths.has(card.id + '|' + pd.slice(0,7))) continue; // 確定済みの月は概算を出さない
+      let amt = card.monthlyEstimate; // 前回額の引き継ぎ：pd より前の最新の確定額、なければ初期概算
+      for (const cp of confirmedPays) { if (cp.date < pd) amt = cp.amount; else break; }
+      out.push({ id: `est_${card.id}_${pd}`, date: pd, label: `${card.name} 引落（概算）`, amount: amt, type: 'credit_payment', accountId: card.debitAccountId, repeat: 'none', confirmed: 'estimated', _auto: true, _cardId: card.id, _estPay: pd });
     }
   }
   return out;
@@ -811,7 +841,7 @@ function allEventsInRange(start, end) {
 // あるカードの次回自動引き落とし（120日以内）
 function nextCardPayment(card) {
   const t = today();
-  const ps = deriveCreditPayments(t, addDays(t, 120)).filter(p => p.id.startsWith('auto_' + card.id + '_'));
+  const ps = deriveCreditPayments(t, addDays(t, 120)).filter(p => p.id.startsWith('auto_' + card.id + '_') || p.id.startsWith('est_' + card.id + '_'));
   ps.sort((a,b) => a.date.localeCompare(b.date));
   return ps[0] || null;
 }
@@ -1267,6 +1297,7 @@ function openAccountModal(id) {
     document.getElementById('accCloseDay').value = acc.closeDay || '';
     document.getElementById('accPayDay').value = acc.payDay || '';
     document.getElementById('accDebitAccount').value = acc.debitAccountId || '';
+    document.getElementById('accMonthlyEst').value = acc.monthlyEstimate || '';
     document.getElementById('accNote').value = acc.note || '';
     document.getElementById('accAutoBill').checked = acc.autoBill !== false;
     toggleCreditFields();
@@ -1277,6 +1308,7 @@ function openAccountModal(id) {
     document.getElementById('accCloseDay').value = '';
     document.getElementById('accPayDay').value = '';
     document.getElementById('accDebitAccount').value = '';
+    document.getElementById('accMonthlyEst').value = '';
     document.getElementById('accNote').value = '';
     document.getElementById('accAutoBill').checked = true;
     document.getElementById('creditFields').style.display = 'none';
@@ -1299,6 +1331,7 @@ function saveAccount() {
     closeDay: parseInt(document.getElementById('accCloseDay').value) || null,
     payDay: parseInt(document.getElementById('accPayDay').value) || null,
     debitAccountId: document.getElementById('accDebitAccount').value || null,
+    monthlyEstimate: parseFloat(document.getElementById('accMonthlyEst').value) || null,
     note: document.getElementById('accNote').value.trim(),
     autoBill: document.getElementById('accAutoBill').checked
   };
@@ -1344,7 +1377,8 @@ function renderEvents() {
     const badgeClass = {income:'badge-income',expense:'badge-expense',transfer:'badge-transfer',credit_payment:'badge-credit',card_charge:'badge-charge'}[ev.type] || '';
     const repeatLabel = {none:'',monthly:'毎月',yearly:'毎年'}[ev.repeat||'none'];
     const isAuto = !!ev._auto;
-    const tag = isAuto ? ' <span style="font-size:10px;color:var(--text3)">(自動引落・予測)</span>' : (ev.confirmed === 'estimated' ? ' <span style="font-size:10px;color:var(--text3)">(予測)</span>' : '');
+    const isEst = !!ev._estPay;
+    const tag = isEst ? ' <span style="font-size:10px;color:var(--text3)">(概算・予測)</span>' : isAuto ? ' <span style="font-size:10px;color:var(--text3)">(自動引落・予測)</span>' : (ev.confirmed === 'estimated' ? ' <span style="font-size:10px;color:var(--text3)">(予測)</span>' : '');
     return `<tr${isAuto ? ' style="opacity:.7"' : ` onclick="openEventModal('${ev.id}')" style="cursor:pointer;"`}>
       <td>${fmtDate(ev.date)}${ev.repeat && ev.repeat !== 'none' ? ` <span style="font-size:10px;color:var(--text3)">${repeatLabel}</span>` : ''}</td>
       <td>${ev.label}${tag}</td>
@@ -1352,10 +1386,26 @@ function renderEvents() {
       <td><span class="badge ${badgeClass}">${typeLabel}</span></td>
       <td class="${ev.type === 'income' ? 'amount-positive' : ev.type !== 'transfer' ? 'amount-negative' : ''}">${fmt(ev.amount)}</td>
       <td style="white-space:nowrap;">
-        ${isAuto ? '<span style="font-size:11px;color:var(--text3);">自動</span>' : `<button class="btn btn-sm" onclick="event.stopPropagation();openEventModal('${ev.id}')">編集</button> <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteEvent('${ev.id}')">削除</button>`}
+        ${isEst ? `<button class="btn btn-sm" onclick="event.stopPropagation();confirmEstPayment('${ev._cardId}','${ev.date}',${ev.amount})">確定</button>` : isAuto ? '<span style="font-size:11px;color:var(--text3);">自動</span>' : `<button class="btn btn-sm" onclick="event.stopPropagation();openEventModal('${ev.id}')">編集</button> <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteEvent('${ev.id}')">削除</button>`}
       </td>
     </tr>`;
   }).join('');
+}
+
+// v1.17: 概算引落を、その月だけ確定額に更新（他の月は概算のまま／二重計上なし。確定額は次月以降の概算に引き継がれる）
+function confirmEstPayment(cardId, dateStr, defaultAmt) {
+  const card = state.accounts.find(a => a.id === cardId);
+  if (!card) return;
+  const input = prompt(`${card.name}｜${fmtDate(dateStr)} の確定した引落額を入力してください`, defaultAmt);
+  if (input === null) return;
+  const amt = parseFloat(String(input).replace(/[,，\s円]/g, ''));
+  if (isNaN(amt) || amt <= 0) { alert('正しい金額を入力してください'); return; }
+  const ym = dateStr.slice(0, 7);
+  // 同カード・同月の既存確定を置換（重複防止）
+  state.events = state.events.filter(e => !(e._cardId === cardId && e.type === 'credit_payment' && e.date.slice(0,7) === ym));
+  state.events.push({ id: uid(), date: dateStr, label: `${card.name} 引落`, amount: amt, type: 'credit_payment', accountId: card.debitAccountId, repeat: 'none', confirmed: 'confirmed', _cardId: cardId, _csvPay: dateStr });
+  persist();
+  renderEvents(); renderDashboard(); renderAccounts();
 }
 
 function openEventModal(id) {
