@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CashFlow Planner</title>
-<!-- v1.19: 概算(monthlyEstimate)と利用明細(card_charge)の排他を撤廃し「手前は明細・先は概算」に統合。概算額を設定したカードでも、締め日があれば明細のあるサイクルはその実額合計（現時点の積み上がり）を引落予測に採用（id=dtl_、ラベル「引落（明細集計）」、タグ「明細集計・予測」）。明細が無い先の月は従来どおり概算（直近確定額を引き継ぎ）。dtl_行もconfirmEstPaymentで確定可能（既定値=明細合計）。nextCardPaymentのid判定にdtl_を追加。二重計上防止（coveredMonths/確定済み月スキップ）とA/B排他（usageCards=概算なし／estCards=概算あり）は不変。設定欄の説明文を新挙動に更新。/ v1.18: 通帳を「見るだけ」から「操作できる」メイン画面に。上部に現在残高＋「残高を更新」「予定を追加」ボタンを常設。台帳の各行をタップで直接編集（実イベントはopenEventModal、概算引落はconfirmEstPaymentで確定）できるように（タップ可能行に›を表示）。残高更新・予定の追加/編集/削除・CSV取込・口座保存の後に通帳も自動再描画するrefreshAll()を導入し、予定/残高/通帳の行き来を不要に。既存の計算・データ構造は不変。/ v1.17: カードに「毎月の概算引落額」欄(monthlyEstimate)を追加。設定すると引落口座・支払日を使い、毎月の引落（概算）を自動で予定/カレンダー/危険日予測に生成（利用明細入力もCSVも不要）。予定タブの概算行に「確定」ボタンを設け、請求確定時にその月だけ実額へ更新（confirmed引落を作成→coveredMonthsで当月の概算をスキップ＝二重計上なし）。確定額は直近優先で次月以降の概算に自動で引き継がれる。概算額を設定したカードは利用明細ベースの自動生成(A)より優先。nextCardPaymentもest_行に対応。計算の土台(getExpandedeventsが取込)に沿うため危険日にも反映。/ v1.16: 予定タブでクレカ「利用」明細(card_charge)を既定で畳む。CSV取込で利用行が大量に増えて予定が埋まる問題に対応。先頭に「💳 カード利用明細 N件 ▼タップで展開」バーを表示し、タップで表示/非表示を切替。利用は元々ダッシュボード直近イベント・通帳台帳から除外済み（計算材料扱い）で、予定タブのみ埋まっていたためここで畳む。収入/支出/引落/移動などその他の予定は従来どおり常時表示。表示の絞り込みのみで計算・データ構造は不変。/ v1.15: ダッシュボード先頭に「おかえりパネル（今日やること）」を常設。久しぶりに開いたとき何をすればよいか迷わないよう、①残高更新②クレカCSV取込③危険日確認の3ステップを常時表示。①は最終残高更新からの経過日数（balanceUpdatedAt）で鮮度チップを自動表示（本日/○日前/○日前・要更新/未更新）、③はgetAlertsから危険・注意件数を自動表示。各ステップのタップで担当画面（残高モーダル/クレカCSVモーダル/レポート）へ遷移。表示のみの追加で計算・データ構造は不変。/ v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
+<!-- v1.21: ①「口座を選んだのに通帳に出ない」原因を追加修正：収入/支出/引落/移動の「対象口座」候補にクレカが混在しており、選べてしまうのに通帳(現金系口座のみ表示)・残高予測に反映されなかった。候補をタイプ別に厳格化（card_charge=クレカのみ／その他=銀行・現金のみ）。予定タブの警告バーも「口座未設定またはクレカ指定」を検出対象に拡張し、該当行の口座欄を赤字表示。②カードの設計思想をUIで明示：カード設定に「手前は明細・先は概算」の①概算額＝先の月の土台／②利用明細＝今サイクルの積み上がり／併用可、を常設解説として表示。概算額欄のラベルと説明を役割ベースに書き換え。口座タブのカード行に現在の予測モード（概算＋明細／明細ベース／未設定は警告）と次回引落の根拠［概算/明細集計］を表示。予定追加モーダルで種別=引落/利用を選ぶとカード設定推奨・手動追加の適用範囲（毎月固定額のリース・ローン等）をその場で案内。計算ロジック・データ構造は不変。/ v1.20: 「予定に入れたのに通帳に出ない」の原因を修正。対象口座が未選択(accountId=null)のまま保存できたため、予定タブには表示されるが通帳台帳(touchesScope判定)・残高予測・危険日判定のいずれにも反映されず静かに抜け落ちていた。①saveEventでcard_charge以外も対象口座を必須化 ②既存の口座未設定イベントを予定タブ先頭で件数警告し、該当行の口座欄に「⚠️口座未設定」を赤字表示してタップ修正へ誘導 ③v1.18で漏れていた配線を補修：saveEvent/deleteEventがrenderEvents()のみだったためrefreshAll()に変更し、予定の追加/編集/削除後に通帳が即再描画されるように（タブ切替不要）。計算ロジック・データ構造は不変。/ v1.19: 概算(monthlyEstimate)と利用明細(card_charge)の排他を撤廃し「手前は明細・先は概算」に統合。概算額を設定したカードでも、締め日があれば明細のあるサイクルはその実額合計（現時点の積み上がり）を引落予測に採用（id=dtl_、ラベル「引落（明細集計）」、タグ「明細集計・予測」）。明細が無い先の月は従来どおり概算（直近確定額を引き継ぎ）。dtl_行もconfirmEstPaymentで確定可能（既定値=明細合計）。nextCardPaymentのid判定にdtl_を追加。二重計上防止（coveredMonths/確定済み月スキップ）とA/B排他（usageCards=概算なし／estCards=概算あり）は不変。設定欄の説明文を新挙動に更新。/ v1.18: 通帳を「見るだけ」から「操作できる」メイン画面に。上部に現在残高＋「残高を更新」「予定を追加」ボタンを常設。台帳の各行をタップで直接編集（実イベントはopenEventModal、概算引落はconfirmEstPaymentで確定）できるように（タップ可能行に›を表示）。残高更新・予定の追加/編集/削除・CSV取込・口座保存の後に通帳も自動再描画するrefreshAll()を導入し、予定/残高/通帳の行き来を不要に。既存の計算・データ構造は不変。/ v1.17: カードに「毎月の概算引落額」欄(monthlyEstimate)を追加。設定すると引落口座・支払日を使い、毎月の引落（概算）を自動で予定/カレンダー/危険日予測に生成（利用明細入力もCSVも不要）。予定タブの概算行に「確定」ボタンを設け、請求確定時にその月だけ実額へ更新（confirmed引落を作成→coveredMonthsで当月の概算をスキップ＝二重計上なし）。確定額は直近優先で次月以降の概算に自動で引き継がれる。概算額を設定したカードは利用明細ベースの自動生成(A)より優先。nextCardPaymentもest_行に対応。計算の土台(getExpandedeventsが取込)に沿うため危険日にも反映。/ v1.16: 予定タブでクレカ「利用」明細(card_charge)を既定で畳む。CSV取込で利用行が大量に増えて予定が埋まる問題に対応。先頭に「💳 カード利用明細 N件 ▼タップで展開」バーを表示し、タップで表示/非表示を切替。利用は元々ダッシュボード直近イベント・通帳台帳から除外済み（計算材料扱い）で、予定タブのみ埋まっていたためここで畳む。収入/支出/引落/移動などその他の予定は従来どおり常時表示。表示の絞り込みのみで計算・データ構造は不変。/ v1.15: ダッシュボード先頭に「おかえりパネル（今日やること）」を常設。久しぶりに開いたとき何をすればよいか迷わないよう、①残高更新②クレカCSV取込③危険日確認の3ステップを常時表示。①は最終残高更新からの経過日数（balanceUpdatedAt）で鮮度チップを自動表示（本日/○日前/○日前・要更新/未更新）、③はgetAlertsから危険・注意件数を自動表示。各ステップのタップで担当画面（残高モーダル/クレカCSVモーダル/レポート）へ遷移。表示のみの追加で計算・データ構造は不変。/ v1.14: スマホで予定一覧の右端「削除」ボタンが見切れて押せない問題に対応。行タップで編集モーダルを開き、モーダル内に「削除」ボタンを追加。予定一覧の表を横スクロール可（overflow-x:auto）に。自動引落（予測）行はタップ不可のまま。/ v1.13: 通帳の口座別表示バグ修正。台帳の行が全口座のイベントを並べていた（選択口座以外が¥0行として混在）問題を、スコープ口座に関係する行（accountId か 口座移動の着金側toAccountId が選択口座）のみ表示に修正。残高列は元から正しくスコープ計算済み。合算表示は従来どおり全口座。/ v1.12: クレカ明細CSV照合（JCB形式）を新設。CSV→既存「利用」と突合（一致/追加候補/金額相違/CSVになし）し、レビュー後に適用。引落予定はCSVの請求総額・支払日で確定生成（海外手数料込みの総額を採用）。取込済み月は自動予測をスキップして二重計上を防止。予定タブに自動引落（予測）を読み取り専用で表示し②を解消。/ v1.11: 各タブ先頭に役割を1行で示す説明バー（.tab-hint）を常時表示。重複しやすい箇所（残高グラフ＝ダッシュボード/通帳、不足＝シミュレーター/レポート）に相互ナビの一言を追加。表示のみの追加で計算・データ構造は不変。/ v1.10: 残高の意味を「現在残高（今日の取引まで反映済み）」に統一。未来＝明日以降のみ予測／今日以前は実績。今日の取引の二重計上を修正。CSV取込を時系列順に整列（同日内の running 残高ずれを修正）/ v1.9: CSV取込時に最新残高を口座の現在残高へ自動反映（日付が古い場合は確認）。取込の保存・再描画も明示化 / v1.8: 通帳に過去（実績）表示＋合算/口座別の切替を追加。今日を境に実績/予測を区別 / v1.7: LocalStorage自動保存・自動復元（背面/終了時フラッシュ付き）。手動JSONはバックアップ用に併存 / v1.6.1: スマホのナビをタブ独立行＋大きいタップ領域に改善（CSSのみ） / v1.6: 通帳ビュー（合算の時系列台帳＋確実性3本ライン＋補填/移動レイヤー） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
@@ -501,17 +501,23 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
           <input type="number" id="accPayDay" min="1" max="31" placeholder="10">
         </div>
       </div>
+      <div style="background:var(--bg2,rgba(127,127,127,.08));border-radius:8px;padding:10px 12px;margin:4px 0 10px;font-size:11px;line-height:1.7;color:var(--text2);">
+        <div style="font-weight:700;color:var(--text);margin-bottom:4px;">💡 このカードの引落は「手前は明細・先は概算」で予測します</div>
+        <div style="margin-bottom:3px;"><b>① 毎月の概算額</b>＝<b>先の月</b>の土台。明細を入れなくても毎月の引落予定が自動で出ます。請求確定後に「確定」した実額は、翌月以降の概算に自動で引き継がれます。</div>
+        <div style="margin-bottom:3px;"><b>② 利用明細（手入力/CSV）</b>＝<b>今のサイクル</b>の積み上がり。「現時点でもうこれだけ使っている」を見るためのもの。明細を入れたサイクルは、その実額を引落予測に採用します。</div>
+        <div>この2つは<b>併用できます</b>（どちらを使うか選ぶ必要はありません）。締め日を入れておくと、明細をサイクルごとに正しく振り分けられます。</div>
+      </div>
       <div class="form-group" style="margin-bottom:6px;">
         <label class="toggle-row" style="cursor:pointer;margin-bottom:0;">
           <span class="toggle-label">利用明細から引き落としを自動生成</span>
           <input type="checkbox" id="accAutoBill" style="width:auto;flex-shrink:0;">
         </label>
-        <div style="font-size:11px;color:var(--text3);line-height:1.6;">ONにすると、このカードの「クレカ利用」イベントを締め日で集計し、翌月の支払日に引き落とし予定を自動作成します（引き落とし口座・締め日・支払日の設定が必要）。</div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.6;">概算額を使わず<b>明細だけ</b>で運用する場合のスイッチ。ONにすると、このカードの「クレカ利用」を締め日で集計し、翌月の支払日に引き落とし予定を作ります（引き落とし口座・締め日・支払日が必要）。※下の概算額を入れる場合はONのままで構いません。</div>
       </div>
       <div class="form-group" style="margin-bottom:6px;">
-        <label>毎月の概算引落額（利用明細を入れない場合）</label>
+        <label>① 毎月の概算引落額（先の月の土台）</label>
         <input type="number" id="accMonthlyEst" min="0" step="1000" placeholder="例: 80000">
-        <div style="font-size:11px;color:var(--text3);line-height:1.6;">金額を入れると、引き落とし口座・支払日を使って<b>毎月の引落（概算）を自動で予定に出します</b>。明細入力もCSVも不要。<b>そのカードの利用明細を入れたサイクルは、その実額（現時点の積み上がり）を自動で採用</b>し、明細が無い先の月はこの概算額を使います＝「手前は明細・先は概算」。請求が確定したら予定タブでその月だけ「確定」して実額に更新でき、<b>次の月からはその実額が概算として引き継がれます</b>。（締め日を入れておくと明細をサイクルごとに正しく集計できます）</div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.6;">まずは<b>前回の引落額</b>を入れておけばOK。以降は「確定」した実額が自動で引き継がれるので、入れ直す必要はありません。<b>空欄だと毎月の引落予定は自動で出ません</b>（引き落とし口座・支払日も必要）。</div>
       </div>
     </div>
     <div class="form-group">
@@ -562,6 +568,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
         <select id="evAccount"></select>
       </div>
     </div>
+    <div id="evTypeHint" style="display:none;background:rgba(255,149,0,.10);border-radius:8px;padding:9px 11px;margin-bottom:12px;font-size:11px;line-height:1.7;color:var(--text2);"></div>
     <div class="form-group" id="evToAccountGroup" style="display:none;">
       <label>移動先口座</label>
       <select id="evToAccount"></select>
@@ -1300,7 +1307,17 @@ function renderAccounts() {
       <div style="flex:1;">
         <div class="account-name">${acc.name}</div>
         ${acc.type === 'credit' ? `<div class="account-sub">締:${acc.closeDay}日 / 払:${acc.payDay}日${acc.debitAccountId ? ' / ' + (state.accounts.find(a=>a.id===acc.debitAccountId)?.name||'') : ''}</div>` : ''}
-        ${acc.type === 'credit' && acc.autoBill !== false ? (() => { const p = nextCardPayment(acc); return p ? `<div class="account-sub" style="color:var(--warning)">次回引落：${fmt(p.amount)}（${fmtDate(p.date)}）</div>` : '<div class="account-sub">自動引落：対象の利用なし</div>'; })() : ''}
+        ${acc.type === 'credit' ? (() => {
+          const p = nextCardPayment(acc);
+          const ready = acc.debitAccountId && acc.payDay;
+          let mode, col;
+          if (!ready) { mode = '⚠️ 引落口座・支払日が未設定 → 引落予定が出ません'; col = 'var(--danger)'; }
+          else if (acc.monthlyEstimate > 0) { mode = `予測：概算 ${fmt(acc.monthlyEstimate)}／明細のある月はその実額`; col = 'var(--text3)'; }
+          else if (acc.autoBill !== false) { mode = '予測：利用明細ベース（概算額は未設定）'; col = 'var(--text3)'; }
+          else { mode = '⚠️ 予測なし（概算額も明細自動生成もOFF）'; col = 'var(--danger)'; }
+          const nextLine = p ? `<div class="account-sub" style="color:var(--warning)">次回引落：${fmt(p.amount)}（${fmtDate(p.date)}）${p._fromDetail ? '［明細集計］' : p._estPay ? '［概算］' : ''}</div>` : '';
+          return `<div class="account-sub" style="color:${col}">${mode}</div>${nextLine}`;
+        })() : ''}
         ${acc.note ? `<div class="account-sub">${acc.note}</div>` : ''}
         ${acc.balanceUpdatedAt ? `<div class="account-sub">残高更新：${fmtDate(acc.balanceUpdatedAt)}</div>` : ''}
       </div>
@@ -1404,7 +1421,17 @@ function renderEvents() {
     ? `<tr class="charge-bar" onclick="toggleCardCharges()"><td colspan="6">💳 カード利用明細 ${chargeCount}件　<span class="cb-hint">${showCardCharges ? '▲ 畳む' : '▼ タップで展開'}</span></td></tr>`
     : '';
 
-  tbody.innerHTML = chargeBar + visible.map(ev => {
+  // v1.20/v1.21: 通帳・残高予測に反映されない予定（口座未設定／クレカ紐づけ）を警告して修正を促す
+  const orphans = state.events.filter(e => {
+    if (e.type === 'card_charge') return false; // 利用明細はカード紐づけが正しい
+    const a = state.accounts.find(x => x.id === e.accountId);
+    return !a || a.type === 'credit';
+  });
+  const orphanBar = orphans.length > 0
+    ? `<tr><td colspan="6" style="background:rgba(255,59,48,.10);color:var(--danger);font-size:12px;line-height:1.6;padding:10px 12px;">⚠️ 通帳・残高予測に反映されない予定が ${orphans.length}件 あります（対象口座が未設定、またはクレカが指定されています）。<br>通帳は<b>銀行・現金口座</b>の動きだけを並べるため、引き落とし先の口座を指定する必要があります。下の一覧で赤字の行をタップし、対象口座を選び直して保存してください。</td></tr>`
+    : '';
+
+  tbody.innerHTML = orphanBar + chargeBar + visible.map(ev => {
     const acc = state.accounts.find(a => a.id === ev.accountId);
     const typeLabel = {income:'収入',expense:'支出',transfer:'移動',credit_payment:'引落',card_charge:'利用'}[ev.type] || ev.type;
     const badgeClass = {income:'badge-income',expense:'badge-expense',transfer:'badge-transfer',credit_payment:'badge-credit',card_charge:'badge-charge'}[ev.type] || '';
@@ -1416,7 +1443,13 @@ function renderEvents() {
     return `<tr${isAuto ? ' style="opacity:.7"' : ` onclick="openEventModal('${ev.id}')" style="cursor:pointer;"`}>
       <td>${fmtDate(ev.date)}${ev.repeat && ev.repeat !== 'none' ? ` <span style="font-size:10px;color:var(--text3)">${repeatLabel}</span>` : ''}</td>
       <td>${ev.label}${tag}</td>
-      <td style="font-size:12px;">${acc ? acc.name : '-'}</td>
+      <td style="font-size:12px;">${(() => {
+        if (isAuto) return acc ? acc.name : '-';
+        if (ev.type === 'card_charge') return acc ? acc.name : '-';
+        if (!acc) return '<span style="color:var(--danger);font-weight:600;">⚠️ 口座未設定</span>';
+        if (acc.type === 'credit') return `<span style="color:var(--danger);font-weight:600;">⚠️ ${acc.name}（カード）</span>`;
+        return acc.name;
+      })()}</td>
       <td><span class="badge ${badgeClass}">${typeLabel}</span></td>
       <td class="${ev.type === 'income' ? 'amount-positive' : ev.type !== 'transfer' ? 'amount-negative' : ''}">${fmt(ev.amount)}</td>
       <td style="white-space:nowrap;">
@@ -1475,12 +1508,28 @@ function openEventModal(id) {
 
 function onEventTypeChange() {
   const type = document.getElementById('evType').value;
-  const accs = type === 'card_charge' ? state.accounts.filter(a => a.type === 'credit') : state.accounts;
+  // v1.21: 収入/支出/引落/移動の「対象口座」にクレカが混ざると、選択できてしまうのに通帳・残高予測へ反映されない
+  //        （通帳は現金系口座の行のみ表示）。タイプに応じて候補を正しく絞る。
+  const accs = type === 'card_charge' ? state.accounts.filter(a => a.type === 'credit') : state.accounts.filter(a => a.type !== 'credit');
   const cur = document.getElementById('evAccount').value;
   document.getElementById('evAccount').innerHTML = '<option value="">選択...</option>' + accs.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
   if (accs.some(a => a.id === cur)) document.getElementById('evAccount').value = cur;
   document.getElementById('evAccountLabel').textContent = type === 'card_charge' ? '利用カード' : '対象口座';
   document.getElementById('evToAccountGroup').style.display = type === 'transfer' ? 'block' : 'none';
+  // v1.21: 手動追加とカード設定の役割の違いをその場で伝える
+  const hintEl = document.getElementById('evTypeHint');
+  if (hintEl) {
+    if (type === 'credit_payment') {
+      hintEl.innerHTML = '💳 <b>カードの引落は、カード側で設定するのがおすすめです。</b>口座タブでカードを開き「毎月の概算引落額」を入れると、毎月の引落予定が自動で出て、<b>確定した実額が翌月以降に自動で引き継がれます</b>。<br>ここでの手動追加は、<b>毎月固定額</b>のもの（リース料・ローン返済など）に向いています。手動追加はカードに紐づかないため、確定額の引き継ぎは働きません。<br><span style="color:var(--text3);">※対象口座には「引き落とされる銀行口座」を選んでください（カードは選べません）。</span>';
+      hintEl.style.display = 'block';
+    } else if (type === 'card_charge') {
+      hintEl.innerHTML = '🧾 <b>「利用」は、今サイクルの使用額を積み上げるための入力です。</b>入れたサイクルは、その実額がそのカードの引落予測に反映されます（＝今どれだけ使っているかが残高予測に効きます）。';
+      hintEl.style.display = 'block';
+    } else {
+      hintEl.style.display = 'none';
+      hintEl.innerHTML = '';
+    }
+  }
 }
 
 function saveEvent() {
@@ -1490,6 +1539,8 @@ function saveEvent() {
   if (!date || !label || isNaN(amount) || amount <= 0) { alert('日付・内容・金額を正しく入力してください'); return; }
   const evType = document.getElementById('evType').value;
   if (evType === 'card_charge' && !document.getElementById('evAccount').value) { alert('利用したクレジットカードを選択してください'); return; }
+  // v1.20: 対象口座が未選択だと通帳にも残高予測にも反映されず静かに抜け落ちるため必須化
+  if (evType !== 'card_charge' && !document.getElementById('evAccount').value) { alert('対象口座を選択してください。\n（口座を選ばないと、通帳・残高予測・危険日判定に反映されません）'); return; }
   if (evType === 'transfer' && !document.getElementById('evToAccount').value) { alert('移動先口座を選択してください'); return; }
   const ev = {
     id: editEventId || uid(),
@@ -1507,13 +1558,13 @@ function saveEvent() {
     state.events.push(ev);
   }
   closeModal('eventModal');
-  renderEvents();
+  refreshAll();
 }
 
 function deleteEvent(id) {
   if (!confirm('この予定を削除しますか？')) return;
   state.events = state.events.filter(e => e.id !== id);
-  renderEvents();
+  refreshAll();
 }
 
 // 編集モーダル内からの削除（スマホで行右端のボタンが見切れても削除できるように）
